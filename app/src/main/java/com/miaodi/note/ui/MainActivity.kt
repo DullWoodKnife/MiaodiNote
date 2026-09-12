@@ -94,6 +94,21 @@ class MainActivity : AppCompatActivity() {
             setOf(R.id.mainFragment),
             binding.drawerLayout
         )
+
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            val isMain = destination.id == R.id.mainFragment
+            if (isMain) {
+                binding.fabMain.visibility = View.VISIBLE
+                if (isFabMenuOpen) {
+                    binding.fabNewFolder.visibility = View.VISIBLE
+                    binding.fabNewDoc.visibility = View.VISIBLE
+                }
+            } else {
+                binding.fabMain.visibility = View.GONE
+                binding.fabNewFolder.visibility = View.GONE
+                binding.fabNewDoc.visibility = View.GONE
+            }
+        }
     }
 
     private fun setupToolbar() {

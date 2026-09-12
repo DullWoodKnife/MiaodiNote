@@ -5,10 +5,12 @@
         android:id="@+id/action_search"
         android:icon="@android:drawable/ic_menu_search"
         android:title="搜索"
+        app:iconTint="@android:color/white"
         app:showAsAction="ifRoom" />
     <item
         android:id="@+id/action_more"
         android:icon="@drawable/ic_more"
         android:title="更多"
+        app:iconTint="@android:color/white"
         app:showAsAction="ifRoom" />
 </menu>
