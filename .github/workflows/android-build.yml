@@ -8,7 +8,6 @@ on:
   workflow_dispatch:
 
 env:
-  # Use GitHub Actions run number for auto-incrementing versionCode
   VERSION_CODE: ${{ github.run_number }}
 
 jobs:
@@ -29,15 +28,23 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       
-    - name: Decode Keystore
-      # Decode base64-encoded keystore from GitHub Secret
-      run: |
-        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/release.keystore
-        
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
       
+    - name: Decode Keystore (if available)
+      env:
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      run: |
+        if [ -n "$KEYSTORE_BASE64" ]; then
+          echo "$KEYSTORE_BASE64" | base64 -d > app/release.keystore
+          echo "has_keystore=true" >> $GITHUB_ENV
+        else
+          echo "has_keystore=false" >> $GITHUB_ENV
+          echo "No keystore secret found — building debug APK"
+        fi
+      
     - name: Build Release APK
+      if: env.has_keystore == 'true'
       env:
         KEYSTORE_PATH: app/release.keystore
         KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -45,12 +52,25 @@ jobs:
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: ./gradlew assembleRelease --stacktrace
       
-    - name: Upload APK Artifact
+    - name: Build Debug APK
+      if: env.has_keystore != 'true'
+      run: ./gradlew assembleDebug --stacktrace
+      
+    - name: Upload Release APK
+      if: env.has_keystore == 'true'
       uses: actions/upload-artifact@v4
       with:
-        name: miaodi-note-apk-${{ env.VERSION_CODE }}
+        name: miaodi-note-release-${{ env.VERSION_CODE }}
         path: app/build/outputs/apk/release/app-release.apk
         retention-days: 30
+      
+    - name: Upload Debug APK
+      if: env.has_keystore != 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: miaodi-note-debug-${{ env.VERSION_CODE }}
+        path: app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 7
         
     - name: Clean up keystore
       if: always()
