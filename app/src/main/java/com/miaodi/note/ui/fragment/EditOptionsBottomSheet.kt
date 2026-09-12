@@ -31,6 +31,8 @@ class EditOptionsBottomSheet : BottomSheetDialogFragment() {
         binding.btnClearAll.setOnClickListener { onOptionSelected?.invoke("clear_all"); dismiss() }
         binding.btnPreview.setOnClickListener { onOptionSelected?.invoke("preview"); dismiss() }
 
+        binding.btnSaveAs.setOnClickListener { onOptionSelected?.invoke("save_as"); dismiss() }
+
         // Article settings
         binding.btnSwitchStatus.setOnClickListener { onOptionSelected?.invoke("switch_status"); dismiss() }
         binding.btnMoveToBook.setOnClickListener { onOptionSelected?.invoke("move_to_book"); dismiss() }

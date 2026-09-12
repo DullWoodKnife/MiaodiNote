@@ -65,24 +65,21 @@ class MainActivity : AppCompatActivity() {
      */
     private fun handleQuickNoteIntent(intent: Intent?) {
         if (intent == null) return
-        val isQuickNote = intent.getBooleanExtra(ClipboardMonitorService.EXTRA_QUICK_NOTE, false)
-        val isAskImport = intent.getBooleanExtra(ClipboardMonitorService.EXTRA_ASK_IMPORT, false)
-        if (!isQuickNote && !isAskImport) return
-
-        val text = intent.getStringExtra(ClipboardMonitorService.EXTRA_QUICK_NOTE_TEXT).orEmpty()
-        viewModel.setPendingQuickNoteText(text)
+        if (!intent.getBooleanExtra(ClipboardMonitorService.EXTRA_QUICK_NOTE, false) &&
+            !intent.getBooleanExtra(ClipboardMonitorService.EXTRA_ASK_IMPORT, false)
+        ) return
 
         lifecycleScope.launch {
-            // 收集到大于 0 的章节 ID（默认章节已初始化）后即导航并结束
             viewModel.currentChapterId.first { it > 0 }
-            if (navController.currentDestination?.id != R.id.mainFragment) {
-                navController.navigate(R.id.mainFragment)
+            val quickText = intent.getStringExtra(ClipboardMonitorService.EXTRA_QUICK_NOTE_TEXT)
+            viewModel.setPendingQuickNoteText(quickText)
+            val chapterId = viewModel.currentChapterId.value
+            val editIntent = Intent(this@MainActivity, EditActivity::class.java).apply {
+                putExtra("articleId", -1L)
+                putExtra("chapterId", chapterId)
+                putExtra("quickText", quickText)
             }
-            val action = com.miaodi.note.ui.fragment.MainFragmentDirections.actionMainFragmentToEditFragment(
-                articleId = -1L,
-                chapterId = viewModel.currentChapterId.value
-            )
-            navController.navigate(action)
+            startActivity(editIntent)
         }
     }
 
@@ -118,6 +115,11 @@ class MainActivity : AppCompatActivity() {
             } else {
                 navController.navigateUp()
             }
+        }
+
+        // 点击标题栏区域打开书本/章节选择面板
+        binding.toolbarTitleContainer.setOnClickListener {
+            showBookChapterSheet()
         }
 
         binding.toolbar.setOnMenuItemClickListener { item ->
@@ -180,14 +182,14 @@ class MainActivity : AppCompatActivity() {
 
         binding.fabNewDoc.setOnClickListener {
             toggleFabMenu()
-            // Navigate to edit fragment to create new article
+            // Navigate to edit activity to create new article
             val chapterId = viewModel.currentChapterId.value
             if (chapterId > 0) {
-                val action = com.miaodi.note.ui.fragment.MainFragmentDirections.actionMainFragmentToEditFragment(
-                    articleId = -1L,
-                    chapterId = chapterId
-                )
-                navController.navigate(action)
+                val intent = Intent(this, EditActivity::class.java).apply {
+                    putExtra("articleId", -1L)
+                    putExtra("chapterId", chapterId)
+                }
+                startActivity(intent)
             }
         }
 

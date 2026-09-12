@@ -21,6 +21,9 @@ interface ArticleDao {
     @Query("SELECT * FROM articles WHERE chapterId = :chapterId AND (title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%') ORDER BY updatedAt DESC")
     fun searchArticles(chapterId: Long, query: String): Flow<List<Article>>
 
+    @Query("SELECT * FROM articles WHERE chapterId = :chapterId ORDER BY updatedAt DESC")
+    suspend fun getArticlesByChapterOnce(chapterId: Long): List<Article>
+
     @Insert
     suspend fun insert(article: Article): Long
 

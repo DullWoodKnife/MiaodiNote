@@ -27,10 +27,14 @@
                 app:menu="@menu/toolbar_menu">
 
                 <LinearLayout
+                    android:id="@+id/toolbarTitleContainer"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:gravity="center_vertical">
+                    android:gravity="center_vertical"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackground">
 
                     <TextView
                         android:id="@+id/tvBookTitle"

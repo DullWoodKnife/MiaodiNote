@@ -10,7 +10,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.navigation.fragment.findNavController
+import android.content.Intent
+import com.miaodi.note.ui.EditActivity
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -114,8 +115,11 @@ class MainFragment : Fragment() {
     private fun observeEvents() {
         viewModel.navigateToEdit.observe(viewLifecycleOwner) { articleId ->
             articleId?.let {
-                val action = MainFragmentDirections.actionMainFragmentToEditFragment(it, viewModel.currentChapterId.value)
-                findNavController().navigate(action)
+                val intent = Intent(requireContext(), EditActivity::class.java).apply {
+                    putExtra("articleId", it)
+                    putExtra("chapterId", viewModel.currentChapterId.value)
+                }
+                startActivity(intent)
                 viewModel.onEditNavigated()
             }
         }

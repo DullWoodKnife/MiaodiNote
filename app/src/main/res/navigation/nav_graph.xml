@@ -9,26 +9,7 @@
         android:id="@+id/mainFragment"
         android:name="com.miaodi.note.ui.fragment.MainFragment"
         android:label="记录"
-        tools:layout="@layout/fragment_main">
-        <action
-            android:id="@+id/action_mainFragment_to_editFragment"
-            app:destination="@id/editFragment" />
-    </fragment>
-
-    <fragment
-        android:id="@+id/editFragment"
-        android:name="com.miaodi.note.ui.fragment.EditFragment"
-        android:label="编辑文章"
-        tools:layout="@layout/fragment_edit">
-        <argument
-            android:name="articleId"
-            app:argType="long"
-            android:defaultValue="-1L" />
-        <argument
-            android:name="chapterId"
-            app:argType="long"
-            android:defaultValue="-1L" />
-    </fragment>
+        tools:layout="@layout/fragment_main" />
 
     <fragment
         android:id="@+id/settingsFragment"

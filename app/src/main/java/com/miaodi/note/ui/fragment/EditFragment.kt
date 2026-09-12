@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
@@ -22,14 +23,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import androidx.navigation.fragment.findNavController
-import androidx.navigation.fragment.navArgs
 import com.miaodi.note.MiaodiApplication
 import com.miaodi.note.R
 import com.miaodi.note.data.model.Article
 import com.miaodi.note.databinding.FragmentEditBinding
 import com.miaodi.note.data.repository.NoteRepository
-import com.miaodi.note.ui.viewmodel.MainViewModel
 import com.miaodi.note.utils.ImageExportUtils
 import com.miaodi.note.utils.MarkdownPreviewUtils
 import com.miaodi.note.utils.Md5Utils
@@ -45,12 +43,14 @@ class EditFragment : Fragment() {
     private var _binding: FragmentEditBinding? = null
     private val binding get() = _binding!!
 
-    private val args: EditFragmentArgs by navArgs()
     private lateinit var repository: NoteRepository
     private var currentArticle: Article? = null
-    private lateinit var viewModel: MainViewModel
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
     private val titleDateFormat = SimpleDateFormat("yyyy-MM-dd(HHmmss)", Locale.getDefault())
+
+    /** 编辑器三态：锁定编辑 → 滑动浏览 → MD 只读预览 */
+    private enum class EditorMode { LOCKED_EDIT, SLIDE, MD_READONLY }
+    private var currentMode = EditorMode.LOCKED_EDIT
 
     private var pendingExportType = ""
     private var pendingExportTitle = ""
@@ -89,19 +89,18 @@ class EditFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         repository = (requireActivity().application as MiaodiApplication).repository
-        viewModel = androidx.lifecycle.ViewModelProvider(requireActivity(),
-            MainViewModel.Factory(repository))[MainViewModel::class.java]
 
         setupToolbar()
         setupWordCount()
         setupBottomToolbar()
+        setupSwipeGesture()
         applyEditorPreferences()
         loadOrCreateArticle()
 
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 saveArticle()
-                findNavController().navigateUp()
+                requireActivity().finish()
             }
         })
     }
@@ -109,7 +108,7 @@ class EditFragment : Fragment() {
     private fun setupToolbar() {
         binding.toolbar.setNavigationOnClickListener {
             saveArticle()
-            findNavController().navigateUp()
+            requireActivity().finish()
         }
 
         binding.toolbar.inflateMenu(R.menu.toolbar_menu)
@@ -123,6 +122,16 @@ class EditFragment : Fragment() {
                 }
                 else -> false
             }
+        }
+
+        // 状态切换：三态循环（锁定编辑 → 滑动 → MD 只读预览 → 循环）
+        binding.btnStatusSwitch.setOnClickListener {
+            currentMode = when (currentMode) {
+                EditorMode.LOCKED_EDIT -> EditorMode.SLIDE
+                EditorMode.SLIDE -> EditorMode.MD_READONLY
+                EditorMode.MD_READONLY -> EditorMode.LOCKED_EDIT
+            }
+            applyMode()
         }
     }
 
@@ -139,6 +148,113 @@ class EditFragment : Fragment() {
 
     private val undoStack = ArrayDeque<String>()
     private val redoStack = ArrayDeque<String>()
+
+
+    /** 三态模式 UI 应用 */
+    private fun applyMode() {
+        when (currentMode) {
+            EditorMode.LOCKED_EDIT -> {
+                binding.etContent.isEnabled = true
+                binding.etContent.setTextIsSelectable(true)
+                binding.etContent.visibility = View.VISIBLE
+                binding.etContent.isFocusableInTouchMode = true
+                binding.btnStatusSwitch.text = "🔒 锁定"
+                binding.btnStatusSwitch.background = androidx.core.content.ContextCompat.getDrawable(
+                    requireContext(), R.drawable.bg_status_switch
+                )
+            }
+            EditorMode.SLIDE -> {
+                binding.etContent.isEnabled = true
+                binding.etContent.setTextIsSelectable(true)
+                binding.etContent.visibility = View.VISIBLE
+                binding.etContent.isFocusableInTouchMode = true
+                binding.btnStatusSwitch.text = "↔ 滑动"
+                binding.btnStatusSwitch.background = androidx.core.content.ContextCompat.getDrawable(
+                    requireContext(), R.drawable.bg_status_switch
+                )
+                (binding.btnStatusSwitch.background as? android.graphics.drawable.GradientDrawable)?.setColor(
+                    0xFF4CAF50.toInt()
+                )
+            }
+            EditorMode.MD_READONLY -> {
+                binding.etContent.isEnabled = false
+                binding.etContent.visibility = View.VISIBLE
+                binding.etContent.isFocusableInTouchMode = false
+                binding.btnStatusSwitch.text = "📖 阅读"
+                binding.btnStatusSwitch.background = androidx.core.content.ContextCompat.getDrawable(
+                    requireContext(), R.drawable.bg_status_switch
+                )
+                (binding.btnStatusSwitch.background as? android.graphics.drawable.GradientDrawable)?.setColor(
+                    0xFFFF9800.toInt()
+                )
+                if (currentArticle?.isMarkdown == true) showMarkdownPreview()
+            }
+        }
+    }
+
+    /** 手势检测：滑动状态时左右滑动切换相邻文章 */
+    private var swipeDownX = 0f
+    private var swipeDownY = 0f
+    private var isGestureConsuming = false
+
+    private fun setupSwipeGesture() {
+        binding.etContent.setOnTouchListener { view, event ->
+            if (currentMode != EditorMode.SLIDE) return@setOnTouchListener false
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    swipeDownX = event.x
+                    swipeDownY = event.y
+                    isGestureConsuming = false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.x - swipeDownX
+                    val dy = event.y - swipeDownY
+                    if (!isGestureConsuming && kotlin.math.abs(dx) > 60 && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2) {
+                        isGestureConsuming = true
+                        if (dx < 0) loadAdjacentArticle(+1)
+                        else loadAdjacentArticle(-1)
+                        view.performClick()
+                        return@setOnTouchListener true
+                    }
+                }
+                MotionEvent.ACTION_UP -> isGestureConsuming = false
+            }
+            false
+        }
+    }
+
+    /** 加载相邻文章：direction = +1 下一篇 / -1 上一篇 */
+    private var adjacentArticles: List<Long>? = null
+
+    private fun loadAdjacentArticle(direction: Int) {
+        lifecycleScope.launch {
+            val currentId = currentArticle?.id ?: return@launch
+            if (currentId == 0L) return@launch
+            val chapterId = currentArticle?.chapterId ?: return@launch
+            if (chapterId <= 0) return@launch
+
+            val articles = repository.getArticlesByChapterOnce(chapterId)
+            if (articles.isEmpty()) return@launch
+
+            adjacentArticles = articles.map { it.id }
+            val currentIndex = adjacentArticles!!.indexOf(currentId)
+            if (currentIndex < 0) return@launch
+
+            val newIndex = (currentIndex + direction).coerceIn(0, adjacentArticles!!.size - 1)
+            if (newIndex == currentIndex) return@launch
+
+            // 先保存当前文章
+            saveArticle()
+
+            val nextArticle = articles[newIndex]
+            currentArticle = nextArticle
+            binding.etTitle.setText(nextArticle.title)
+            binding.etContent.setText(nextArticle.content)
+            binding.tvWordCount.text = getString(R.string.word_count, nextArticle.content.length)
+            Toast.makeText(requireContext(), "已切换到：${nextArticle.title}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
 
     private fun setupBottomToolbar() {
         binding.btnToolCat.setOnClickListener {
@@ -298,8 +414,9 @@ class EditFragment : Fragment() {
     }
 
     private fun loadOrCreateArticle() {
-        val articleId = args.articleId
-        val chapterId = args.chapterId
+        val articleId = arguments?.getLong("articleId", -1L) ?: -1L
+        val chapterId = arguments?.getLong("chapterId", -1L) ?: -1L
+        val quickText = arguments?.getString("quickText")
 
         if (articleId > 0) {
             lifecycleScope.launch {
@@ -313,7 +430,6 @@ class EditFragment : Fragment() {
             }
         } else if (chapterId > 0) {
             // 从通知栏“快捷记录 / 剪贴板导入询问”进入时预填内容
-            val quickText = viewModel.pendingQuickNoteText.value
             if (!quickText.isNullOrBlank()) {
                 val title = quickText.lineSequence().firstOrNull { it.isNotBlank() }
                     ?.take(20) ?: "快捷记录"
@@ -326,7 +442,6 @@ class EditFragment : Fragment() {
                 binding.etTitle.setText(title)
                 binding.etContent.setText(quickText)
                 binding.tvWordCount.text = getString(R.string.word_count, quickText.length)
-                viewModel.setPendingQuickNoteText(null)
             } else {
                 // 根据设置页“新建文章编辑器模式”决定新文章的 Markdown 标记
                 val editorMode = requireContext()
@@ -420,6 +535,7 @@ class EditFragment : Fragment() {
                 }
                 "encrypt" -> showEncryptDialog()
                 "decrypt" -> showDecryptDialog()
+                "save_as" -> saveAsNewArticle()
                 "export_md" -> exportDocument("md", "text/markdown")
                 "export_txt" -> exportDocument("txt", "text/plain")
                 "export_html" -> exportDocument("html", "text/html")
@@ -538,15 +654,54 @@ class EditFragment : Fragment() {
                     .setPositiveButton("删除") { _, _ ->
                         lifecycleScope.launch {
                             repository.deleteArticle(article)
-                            findNavController().navigateUp()
+                            requireActivity().finish()
                         }
                     }
                     .setNegativeButton("取消", null)
                     .show()
             } else {
-                findNavController().navigateUp()
+                requireActivity().finish()
             }
         }
+    }
+
+    /** 另存为：复制当前文章为新文章，保留原文不变 */
+    private fun saveAsNewArticle() {
+        val current = currentArticle ?: return
+        val originalTitle = binding.etTitle.text.toString()
+        val content = binding.etContent.text.toString()
+
+        val input = EditText(requireContext()).apply {
+            setText("$originalTitle-副本")
+            selectAll()
+        }
+        val container = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(50, 20, 50, 20)
+            addView(input)
+        }
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("另存为新文章")
+            .setView(container)
+            .setPositiveButton("保存") { _, _ ->
+                val newTitle = input.text.toString().ifBlank { "$originalTitle-副本" }
+                lifecycleScope.launch {
+                    val newArticle = Article(
+                        chapterId = current.chapterId,
+                        title = newTitle,
+                        content = content,
+                        isMarkdown = current.isMarkdown,
+                        wordCount = content.length,
+                        isNew = false,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                    repository.insertArticle(newArticle)
+                    Toast.makeText(requireContext(), "已另存为: $newTitle", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
     override fun onPause() {
