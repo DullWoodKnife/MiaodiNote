@@ -3,6 +3,7 @@ package com.miaodi.note.ui
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import android.view.WindowInsets
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -39,6 +40,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // 确保状态栏背景色与 Toolbar 一致，防止系统默认白色覆盖
+        window.statusBarColor = getColor(R.color.primary_dark)
+        window.decorView.setOnApplyWindowInsetsListener { _, insets -> insets }
 
         val repository = (application as MiaodiApplication).repository
         viewModel = androidx.lifecycle.ViewModelProvider(this, com.miaodi.note.ui.viewmodel.MainViewModel.Factory(repository))[com.miaodi.note.ui.viewmodel.MainViewModel::class.java]
