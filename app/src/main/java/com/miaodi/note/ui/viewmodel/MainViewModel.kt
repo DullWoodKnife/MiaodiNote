@@ -156,10 +156,31 @@ class MainViewModel(private val repository: NoteRepository) : ViewModel() {
         }
     }
 
+    fun updateBook(book: Book) {
+        viewModelScope.launch {
+            repository.updateBook(book)
+        }
+    }
+
+    fun deleteBook(book: Book) {
+        viewModelScope.launch {
+            repository.deleteBook(book)
+            // After deletion, reset to first available book
+            val books = repository.getAllBooksOnce()
+            if (books.isNotEmpty()) {
+                selectBook(books.first().id)
+            }
+        }
+    }
+
     fun insertChapter(bookId: Long, name: String) {
         viewModelScope.launch {
             repository.insertChapter(Chapter(bookId = bookId, name = name))
         }
+    }
+
+    fun getDefaultBookId(): Long {
+        return books.value.firstOrNull()?.id ?: -1
     }
 
     enum class SortType {

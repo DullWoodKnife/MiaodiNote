@@ -95,12 +95,14 @@ class MainActivity : AppCompatActivity() {
         navController.addOnDestinationChangedListener { _, destination, _ ->
             val isMain = destination.id == R.id.mainFragment
             if (isMain) {
+                binding.appBarLayout.visibility = View.VISIBLE
                 binding.fabMain.visibility = View.VISIBLE
                 if (isFabMenuOpen) {
                     binding.fabNewFolder.visibility = View.VISIBLE
                     binding.fabNewDoc.visibility = View.VISIBLE
                 }
             } else {
+                binding.appBarLayout.visibility = View.GONE
                 binding.fabMain.visibility = View.GONE
                 binding.fabNewFolder.visibility = View.GONE
                 binding.fabNewDoc.visibility = View.GONE
@@ -193,20 +195,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 根据设置页“悬浮按钮模式”决定初始展开/收起
-        val fabMode = getSharedPreferences("miaodi_settings", MODE_PRIVATE)
-            .getString("fab_mode", "展开模式")
-        if (fabMode == "展开模式") {
-            binding.fabNewFolder.visibility = View.VISIBLE
-            binding.fabNewDoc.visibility = View.VISIBLE
-            binding.fabMain.setImageResource(R.drawable.ic_close)
-            isFabMenuOpen = true
-        } else {
-            binding.fabNewFolder.visibility = View.GONE
-            binding.fabNewDoc.visibility = View.GONE
-            binding.fabMain.setImageResource(R.drawable.ic_add)
-            isFabMenuOpen = false
-        }
+        // 默认收起：仅显示"+"按钮
+        binding.fabNewFolder.visibility = View.GONE
+        binding.fabNewDoc.visibility = View.GONE
+        binding.fabMain.setImageResource(R.drawable.ic_add)
+        isFabMenuOpen = false
     }
 
     /** 应用“手动管理导航栏”设置：隐藏/显示系统导航栏 */

@@ -15,4 +15,18 @@
         <item name="android:statusBarColor">@color/primary_dark</item>
         <item name="android:navigationBarColor">@color/surface</item>
     </style>
+    <style name="FullScreenDialogStyle" parent="Theme.Material3.Light.BottomSheetDialog">
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowSoftInputMode">adjustPan</item>
+        <item name="bottomSheetStyle">@style/FullScreenBottomSheetStyle</item>
+    </style>
+
+    <style name="FullScreenBottomSheetStyle" parent="Widget.Material3.BottomSheet">
+        <item name="android:windowIsFloating">false</item>
+        <item name="behavior_peekHeight">0dp</item>
+        <item name="behavior_hideable">true</item>
+        <item name="behavior_skipCollapsed">true</item>
+    </style>
 </resources>

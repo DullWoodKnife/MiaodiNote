@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <EditText
+        android:id="@+id/etBookName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="请输入书名，你将添加一本全新的书籍，写作愉快:)"
+        android:textColor="?attr/colorOnSurface"
+        android:textSize="16sp"
+        android:padding="12dp"
+        android:background="@android:color/transparent" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="?attr/colorOutlineVariant" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginTop="16dp">
+
+        <TextView
+            android:id="@+id/btnRestoreDefault"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="恢复默认书本"
+            android:textColor="?attr/colorPrimary"
+            android:textSize="14sp"
+            android:padding="8dp" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/btnCancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="取消"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="14sp"
+            android:padding="8dp" />
+
+        <TextView
+            android:id="@+id/btnConfirm"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="确定"
+            android:textColor="?attr/colorPrimary"
+            android:textSize="14sp"
+            android:padding="8dp" />
+    </LinearLayout>
+</LinearLayout>

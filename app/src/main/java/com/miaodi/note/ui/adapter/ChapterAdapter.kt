@@ -12,6 +12,7 @@ import com.miaodi.note.R
 
 class ChapterAdapter(
     private val onItemClick: (Chapter) -> Unit,
+    private val onMenuClick: (Chapter, View) -> Unit,
     private val getSelectedId: () -> Long
 ) : ListAdapter<Chapter, ChapterAdapter.ChapterViewHolder>(ChapterDiffCallback()) {
 
@@ -34,21 +35,27 @@ class ChapterAdapter(
                     onItemClick(getItem(position))
                 }
             }
+            binding.btnChapterMenu.setOnClickListener {
+                val position = bindingAdapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    onMenuClick(getItem(position), it)
+                }
+            }
         }
 
         fun bind(chapter: Chapter) {
             val selected = chapter.id == getSelectedId()
             binding.tvName.text = chapter.name
-            val card = binding.root as CardView
-            if (selected) {
-                card.setCardBackgroundColor(binding.root.context.getColor(R.color.amber))
-                binding.tvName.setTextColor(binding.root.context.getColor(android.R.color.white))
-                card.cardElevation = 6f
-            } else {
-                card.setCardBackgroundColor(binding.root.context.getColor(R.color.chapter_light))
-                binding.tvName.setTextColor(binding.root.context.getColor(R.color.on_surface))
-                card.cardElevation = 2f
-            }
+            binding.ivSelectedIndicator.setImageResource(
+                if (selected) R.drawable.ic_radio_checked else R.drawable.ic_radio_unchecked
+            )
+            binding.root.setBackgroundResource(
+                if (selected) R.drawable.bg_chapter_item_selected else R.drawable.bg_chapter_item
+            )
+            binding.tvName.setTextColor(
+                if (selected) binding.root.context.getColor(android.R.color.white)
+                else binding.root.context.getColor(R.color.on_surface)
+            )
         }
     }
 

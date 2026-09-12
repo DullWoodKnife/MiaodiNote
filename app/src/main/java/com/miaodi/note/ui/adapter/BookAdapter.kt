@@ -12,6 +12,7 @@ import com.miaodi.note.R
 
 class BookAdapter(
     private val onItemClick: (Book) -> Unit,
+    private val onMenuClick: (Book, View) -> Unit,
     private val getSelectedId: () -> Long
 ) : ListAdapter<Book, BookAdapter.BookViewHolder>(BookDiffCallback()) {
 
@@ -34,6 +35,12 @@ class BookAdapter(
                     onItemClick(getItem(position))
                 }
             }
+            binding.btnBookMenu.setOnClickListener {
+                val position = bindingAdapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    onMenuClick(getItem(position), it)
+                }
+            }
         }
 
         fun bind(book: Book) {
@@ -46,7 +53,7 @@ class BookAdapter(
                 card.cardElevation = 6f
             } else {
                 card.setCardBackgroundColor(binding.root.context.getColor(R.color.primary_light))
-                binding.tvName.setTextColor(binding.root.context.getColor(R.color.on_surface))
+                binding.tvName.setTextColor(binding.root.context.getColor(android.R.color.white))
                 card.cardElevation = 2f
             }
         }

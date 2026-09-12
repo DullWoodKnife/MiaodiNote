@@ -30,8 +30,9 @@ import com.miaodi.note.databinding.FragmentEditBinding
 import com.miaodi.note.data.repository.NoteRepository
 import com.miaodi.note.utils.ImageExportUtils
 import com.miaodi.note.utils.MarkdownPreviewUtils
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.miaodi.note.utils.Md5Utils
-import com.miaodi.note.utils.PdfExportUtils
 import kotlinx.coroutines.launch
 import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
@@ -97,6 +98,13 @@ class EditFragment : Fragment() {
         applyEditorPreferences()
         loadOrCreateArticle()
 
+        // 确保 Toolbar 不被系统状态栏覆盖，留出顶部安全区域
+        ViewCompat.setOnApplyWindowInsetsListener(binding.toolbar) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(0, systemBars.top, 0, 0)
+            insets
+        }
+
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 saveArticle()
@@ -109,6 +117,13 @@ class EditFragment : Fragment() {
         binding.toolbar.setNavigationOnClickListener {
             saveArticle()
             requireActivity().finish()
+        }
+
+        // 确保状态栏区域留出安全内边距，避免按钮被系统状态栏覆盖
+        ViewCompat.setOnApplyWindowInsetsListener(binding.toolbar) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(v.paddingLeft, systemBars.top, v.paddingRight, v.paddingBottom)
+            insets
         }
 
         binding.toolbar.inflateMenu(R.menu.toolbar_menu)
@@ -124,11 +139,11 @@ class EditFragment : Fragment() {
             }
         }
 
-        // 状态切换：三态循环（锁定编辑 → 滑动 → MD 只读预览 → 循环）
+        // 状态切换：按钮仅支持 锁定→滑动→锁定 与 渲染→锁定；渲染模式由滑动手势进入
         binding.btnStatusSwitch.setOnClickListener {
             currentMode = when (currentMode) {
                 EditorMode.LOCKED_EDIT -> EditorMode.SLIDE
-                EditorMode.SLIDE -> EditorMode.MD_READONLY
+                EditorMode.SLIDE -> EditorMode.LOCKED_EDIT
                 EditorMode.MD_READONLY -> EditorMode.LOCKED_EDIT
             }
             applyMode()
@@ -150,7 +165,7 @@ class EditFragment : Fragment() {
     private val redoStack = ArrayDeque<String>()
 
 
-    /** 三态模式 UI 应用 */
+    /** 三态模式 UI 应用：锁定(源码可编辑) / 滑动(手势进入渲染) / MD 只读预览(整页渲染) */
     private fun applyMode() {
         when (currentMode) {
             EditorMode.LOCKED_EDIT -> {
@@ -158,6 +173,7 @@ class EditFragment : Fragment() {
                 binding.etContent.setTextIsSelectable(true)
                 binding.etContent.visibility = View.VISIBLE
                 binding.etContent.isFocusableInTouchMode = true
+                clearFullPreview()
                 binding.btnStatusSwitch.text = "🔒 锁定"
                 binding.btnStatusSwitch.background = androidx.core.content.ContextCompat.getDrawable(
                     requireContext(), R.drawable.bg_status_switch
@@ -168,6 +184,7 @@ class EditFragment : Fragment() {
                 binding.etContent.setTextIsSelectable(true)
                 binding.etContent.visibility = View.VISIBLE
                 binding.etContent.isFocusableInTouchMode = true
+                clearFullPreview()
                 binding.btnStatusSwitch.text = "↔ 滑动"
                 binding.btnStatusSwitch.background = androidx.core.content.ContextCompat.getDrawable(
                     requireContext(), R.drawable.bg_status_switch
@@ -178,8 +195,9 @@ class EditFragment : Fragment() {
             }
             EditorMode.MD_READONLY -> {
                 binding.etContent.isEnabled = false
-                binding.etContent.visibility = View.VISIBLE
                 binding.etContent.isFocusableInTouchMode = false
+                binding.etContent.visibility = View.GONE
+                refreshFullPreview()
                 binding.btnStatusSwitch.text = "📖 阅读"
                 binding.btnStatusSwitch.background = androidx.core.content.ContextCompat.getDrawable(
                     requireContext(), R.drawable.bg_status_switch
@@ -187,43 +205,93 @@ class EditFragment : Fragment() {
                 (binding.btnStatusSwitch.background as? android.graphics.drawable.GradientDrawable)?.setColor(
                     0xFFFF9800.toInt()
                 )
-                if (currentArticle?.isMarkdown == true) showMarkdownPreview()
             }
         }
     }
 
-    /** 手势检测：滑动状态时左右滑动切换相邻文章 */
+    /** 手势检测：锁定状态不可滑动；滑动/渲染状态左右滑动切换相邻文章，滑动状态下滑动同时进入渲染模式 */
     private var swipeDownX = 0f
     private var swipeDownY = 0f
     private var isGestureConsuming = false
+    private var previewWebView: WebView? = null
 
-    private fun setupSwipeGesture() {
-        binding.etContent.setOnTouchListener { view, event ->
-            if (currentMode != EditorMode.SLIDE) return@setOnTouchListener false
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    swipeDownX = event.x
-                    swipeDownY = event.y
-                    isGestureConsuming = false
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val dx = event.x - swipeDownX
-                    val dy = event.y - swipeDownY
-                    if (!isGestureConsuming && kotlin.math.abs(dx) > 60 && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2) {
-                        isGestureConsuming = true
-                        if (dx < 0) loadAdjacentArticle(+1)
-                        else loadAdjacentArticle(-1)
-                        view.performClick()
-                        return@setOnTouchListener true
+    /** 统一的横向滑动手势：锁定态返回 false（不可滑动），滑动/渲染态消费横向拖动 */
+    private val swipeTouchListener = View.OnTouchListener { _, event ->
+        when (currentMode) {
+            EditorMode.LOCKED_EDIT -> false
+            EditorMode.SLIDE, EditorMode.MD_READONLY -> {
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        swipeDownX = event.x
+                        swipeDownY = event.y
+                        isGestureConsuming = false
+                        false
                     }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = event.x - swipeDownX
+                        val dy = event.y - swipeDownY
+                        if (!isGestureConsuming && kotlin.math.abs(dx) > 60 && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2) {
+                            isGestureConsuming = true
+                            loadAdjacentArticle(if (dx < 0) +1 else -1)
+                            if (currentMode == EditorMode.SLIDE) {
+                                currentMode = EditorMode.MD_READONLY
+                                applyMode()
+                            } else {
+                                refreshFullPreview()
+                            }
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        isGestureConsuming = false
+                        false
+                    }
+                    else -> false
                 }
-                MotionEvent.ACTION_UP -> isGestureConsuming = false
             }
-            false
         }
     }
 
-    /** 加载相邻文章：direction = +1 下一篇 / -1 上一篇 */
+    private fun setupSwipeGesture() {
+        binding.etContent.setOnTouchListener(swipeTouchListener)
+        binding.contentContainer.setOnTouchListener(swipeTouchListener)
+    }
+
+    /** 整页 Markdown 渲染预览（占据内容区） */
+    private fun refreshFullPreview() {
+        val prefs = requireContext().getSharedPreferences("miaodi_settings", Context.MODE_PRIVATE)
+        val mdStyle = prefs.getString("md_style", "默认") ?: "默认"
+        val content = binding.etContent.text.toString()
+        val html = MarkdownPreviewUtils.render(content, mdStyle)
+
+        previewWebView?.destroy()
+        previewWebView = WebView(requireContext()).apply {
+            settings.javaScriptEnabled = false
+            settings.textZoom = 100
+            setOnTouchListener(swipeTouchListener)
+            loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+        }
+        binding.previewContainer.removeAllViews()
+        binding.previewContainer.addView(
+            previewWebView,
+            android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+        binding.previewContainer.visibility = View.VISIBLE
+    }
+
+    private fun clearFullPreview() {
+        previewWebView?.destroy()
+        previewWebView = null
+        binding.previewContainer.removeAllViews()
+        binding.previewContainer.visibility = View.GONE
+    }
+
+    /** 加载相邻文章：direction = +1 下一篇 / -1 上一篇；若处于渲染模式则切换后刷新整页预览 */
     private var adjacentArticles: List<Long>? = null
 
     private fun loadAdjacentArticle(direction: Int) {
@@ -251,6 +319,9 @@ class EditFragment : Fragment() {
             binding.etTitle.setText(nextArticle.title)
             binding.etContent.setText(nextArticle.content)
             binding.tvWordCount.text = getString(R.string.word_count, nextArticle.content.length)
+            if (currentMode == EditorMode.MD_READONLY) {
+                refreshFullPreview()
+            }
             Toast.makeText(requireContext(), "已切换到：${nextArticle.title}", Toast.LENGTH_SHORT).show()
         }
     }
@@ -711,6 +782,7 @@ class EditFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        clearFullPreview()
         _binding = null
     }
 }
