@@ -51,6 +51,9 @@ class MainActivity : AppCompatActivity() {
         setupBackPressed()
         applyManualNavSetting()
         handleQuickNoteIntent(intent)
+
+        // 恢复状态栏颜色为 primary 避免系统默认白色覆盖
+        window.statusBarColor = getColor(R.color.primary_dark)
     }
 
     override fun onNewIntent(intent: Intent) {
