@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary"
+        app:navigationIcon="@drawable/ic_back"
+        app:navigationIconTint="@android:color/white">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="关于"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </com.google.android.material.appbar.MaterialToolbar>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:padding="24dp">
+
+            <ImageView
+                android:id="@+id/ivLogo"
+                android:layout_width="88dp"
+                android:layout_height="88dp"
+                android:src="@drawable/ic_cat_amber"
+                android:contentDescription="Logo" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/app_name"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="?attr/colorOnSurface" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="跨平台Markdown记录软件"
+                android:textSize="13sp"
+                android:textColor="?attr/colorOnSurfaceVariant" />
+
+            <TextView
+                android:id="@+id/tvVersion"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="当前版本 1.0.1"
+                android:textSize="13sp"
+                android:textColor="?attr/colorOnSurfaceVariant" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="24dp"
+                android:background="?attr/colorOutlineVariant" />
+
+            <!-- 选项列表 -->
+            <LinearLayout
+                android:id="@+id/rowPrivacy"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="隐私政策" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowAgreement"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="用户协议" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowWebsite"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="软件官网" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowDeveloper"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="开发者" />
+                    <TextView style="@style/SettingSubtitle" android:text="Jalor" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowWechat"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="微信公众号" />
+                    <TextView style="@style/SettingSubtitle" android:text="Libv" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowQQGroup"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="官方交流Q群" />
+                    <TextView style="@style/SettingSubtitle" android:text="点击复制群号" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="24dp"
+                android:background="?attr/colorOutlineVariant" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="App备案号: 京ICP备2024XXXXXX号-X"
+                android:textSize="11sp"
+                android:textColor="?attr/colorOnSurfaceVariant" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="© 2026 喵滴笔记"
+                android:textSize="11sp"
+                android:textColor="?attr/colorOnSurfaceVariant" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

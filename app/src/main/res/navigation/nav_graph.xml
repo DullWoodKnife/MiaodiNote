@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/mainFragment">
+
+    <fragment
+        android:id="@+id/mainFragment"
+        android:name="com.miaodi.note.ui.fragment.MainFragment"
+        android:label="记录"
+        tools:layout="@layout/fragment_main">
+        <action
+            android:id="@+id/action_mainFragment_to_editFragment"
+            app:destination="@id/editFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/editFragment"
+        android:name="com.miaodi.note.ui.fragment.EditFragment"
+        android:label="编辑文章"
+        tools:layout="@layout/fragment_edit">
+        <argument
+            android:name="articleId"
+            app:argType="long"
+            android:defaultValue="-1L" />
+        <argument
+            android:name="chapterId"
+            app:argType="long"
+            android:defaultValue="-1L" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="com.miaodi.note.ui.fragment.SettingsFragment"
+        android:label="设置"
+        tools:layout="@layout/fragment_settings" />
+
+    <fragment
+        android:id="@+id/todoFragment"
+        android:name="com.miaodi.note.ui.fragment.TodoFragment"
+        android:label="Todo"
+        tools:layout="@layout/fragment_todo" />
+
+    <fragment
+        android:id="@+id/aboutFragment"
+        android:name="com.miaodi.note.ui.fragment.AboutFragment"
+        android:label="关于"
+        tools:layout="@layout/fragment_about" />
+</navigation>

@@ -1,0 +1,57 @@
+name: Android Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  # Use GitHub Actions run number for auto-incrementing versionCode
+  VERSION_CODE: ${{ github.run_number }}
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      
+    - name: Decode Keystore
+      # Decode base64-encoded keystore from GitHub Secret
+      run: |
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/release.keystore
+        
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+      
+    - name: Build Release APK
+      env:
+        KEYSTORE_PATH: app/release.keystore
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      run: ./gradlew assembleRelease --stacktrace
+      
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: miaodi-note-apk-${{ env.VERSION_CODE }}
+        path: app/build/outputs/apk/release/app-release.apk
+        retention-days: 30
+        
+    - name: Clean up keystore
+      if: always()
+      run: rm -f app/release.keystore

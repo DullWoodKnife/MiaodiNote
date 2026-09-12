@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary"
+        app:navigationIcon="@drawable/ic_back"
+        app:navigationIconTint="@android:color/white">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="设置"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </com.google.android.material.appbar.MaterialToolbar>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingVertical="8dp">
+
+            <!-- ===== 通用 ===== -->
+            <TextView style="@style/SettingSectionTitle" android:text="通用" />
+
+            <LinearLayout
+                android:id="@+id/rowClipboard"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="剪贴板记录" />
+                    <TextView style="@style/SettingSubtitle" android:text="自动记录复制的内容到本地" />
+                </LinearLayout>
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchClipboard"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowClipboardAsk"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="剪贴板导入询问" />
+                    <TextView style="@style/SettingSubtitle" android:text="检测到剪贴板内容时询问是否导入" />
+                </LinearLayout>
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchClipboardAsk"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowNotifyQuick"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="通知栏快捷记录" />
+                    <TextView style="@style/SettingSubtitle" android:text="从通知栏快速新建本地记录" />
+                </LinearLayout>
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchNotifyQuick"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
+            <!-- ===== 显示 ===== -->
+            <TextView style="@style/SettingSectionTitle" android:text="显示" />
+
+            <LinearLayout
+                android:id="@+id/rowBlurTopBar"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="编辑页高斯模糊顶部栏" />
+                    <TextView style="@style/SettingSubtitle" android:text="编辑页顶部栏毛玻璃效果" />
+                </LinearLayout>
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchBlurTopBar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowManualNav"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="手动管理导航栏" />
+                    <TextView style="@style/SettingSubtitle" android:text="手动控制底部导航栏显示" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowLanguage"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="语言" />
+                    <TextView style="@style/SettingSubtitle" android:text="跟随系统 / 简体中文" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowListMode"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="文章列表显示方式" />
+                    <TextView style="@style/SettingSubtitle" android:text="列表 / 两列卡片" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <!-- ===== 编辑器 ===== -->
+            <TextView style="@style/SettingSectionTitle" android:text="编辑器" />
+
+            <LinearLayout
+                android:id="@+id/rowFabMode"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="悬浮按钮模式" />
+                    <TextView style="@style/SettingSubtitle" android:text="文章列表页右下角按钮模式" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowEditorMode"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="新建文章编辑器模式" />
+                    <TextView style="@style/SettingSubtitle" android:text="普通 / Markdown" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowCursor"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="光标设置" />
+                    <TextView style="@style/SettingSubtitle" android:text="光标样式与行为" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowFont"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="自定义字体" />
+                    <TextView style="@style/SettingSubtitle" android:text="更换本地字体" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowMdStyle"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="自定义Markdown样式" />
+                    <TextView style="@style/SettingSubtitle" android:text="Markdown 渲染样式" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowPreviewFirst"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="优先预览文章" />
+                    <TextView style="@style/SettingSubtitle" android:text="打开文章时优先显示预览" />
+                </LinearLayout>
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchPreviewFirst"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowQuickBar"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="快捷栏显示设置" />
+                    <TextView style="@style/SettingSubtitle" android:text="编辑页底部快捷工具栏" />
+                </LinearLayout>
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchQuickBar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
+            <!-- ===== 安全 ===== -->
+            <TextView style="@style/SettingSectionTitle" android:text="安全" />
+
+            <LinearLayout
+                android:id="@+id/rowPin"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="PIN解锁" />
+                    <TextView style="@style/SettingSubtitle" android:text="开启后启动应用需输入PIN码" />
+                </LinearLayout>
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchPin"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowMiniBoard"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="文字小板设置" />
+                    <TextView style="@style/SettingSubtitle" android:text="桌面文字组件的相关设置" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <!-- ===== 备份 ===== -->
+            <TextView style="@style/SettingSectionTitle" android:text="备份" />
+
+            <LinearLayout
+                android:id="@+id/rowRestore"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="恢复数据" />
+                    <TextView style="@style/SettingSubtitle" android:text="从备份文件恢复全部数据" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowImportData"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="导入文件" />
+                    <TextView style="@style/SettingSubtitle" android:text="导入 Markdown 或文本文件" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowExportData"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="导出到本地" />
+                    <TextView style="@style/SettingSubtitle" android:text="将全部数据导出为本地备份" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+
+            <!-- ===== 应用更新 ===== -->
+            <TextView style="@style/SettingSectionTitle" android:text="应用更新" />
+
+            <LinearLayout
+                android:id="@+id/rowAutoUpdate"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="自动更新" />
+                    <TextView style="@style/SettingSubtitle" android:text="自动检测并更新应用" />
+                </LinearLayout>
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchAutoUpdate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clickable="false"
+                    android:focusable="false" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowCheckUpdate"
+                style="@style/SettingRow">
+                <LinearLayout style="@style/SettingTextBlock">
+                    <TextView style="@style/SettingTitle" android:text="检查更新" />
+                    <TextView style="@style/SettingSubtitle" android:text="检查当前版本是否为最新" />
+                </LinearLayout>
+                <ImageView android:layout_width="20dp" android:layout_height="20dp"
+                    android:src="@drawable/ic_chevron_right"
+                    app:tint="?attr/colorOnSurfaceVariant"
+                    android:contentDescription="chevron" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

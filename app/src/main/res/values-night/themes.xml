@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MiaodiNote" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorPrimaryContainer">@color/primary</item>
+        <item name="colorOnPrimaryContainer">@android:color/white</item>
+        <item name="colorSecondaryContainer">@color/amber</item>
+        <item name="colorOnSecondaryContainer">@android:color/white</item>
+        <item name="colorOnSurface">#E6E1E5</item>
+        <item name="colorOnSurfaceVariant">#CAC4D0</item>
+        <item name="colorOutline">#938F99</item>
+        <item name="colorOutlineVariant">#49454F</item>
+        <item name="android:statusBarColor">@color/primary_dark</item>
+        <item name="android:navigationBarColor">#1C1B1F</item>
+    </style>
+</resources>

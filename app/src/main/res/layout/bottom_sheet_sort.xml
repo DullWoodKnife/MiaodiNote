@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="?attr/colorSurface">
+
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_sheet_handle"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="列表排列顺序"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="?attr/colorOnSurface"
+        android:layout_marginBottom="16dp" />
+
+    <RadioGroup
+        android:id="@+id/radioGroupSort"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <RadioButton
+            android:id="@+id/rbUpdateTimeDesc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="按修改时间倒序"
+            android:checked="true" />
+
+        <RadioButton
+            android:id="@+id/rbTitleAsc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="按文章标题顺序" />
+
+        <RadioButton
+            android:id="@+id/rbTitleDesc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="按文章标题倒序" />
+
+        <RadioButton
+            android:id="@+id/rbManual"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="按手动顺序" />
+    </RadioGroup>
+</LinearLayout>
