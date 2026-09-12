@@ -21,6 +21,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.miaodi.note.BuildConfig
 import com.miaodi.note.MiaodiApplication
+import com.miaodi.note.R
 import com.miaodi.note.data.model.Article
 import com.miaodi.note.data.model.Book
 import com.miaodi.note.data.model.Chapter

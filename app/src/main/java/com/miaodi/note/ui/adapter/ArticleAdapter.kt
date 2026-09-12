@@ -18,6 +18,7 @@ class ArticleAdapter(
 ) : ListAdapter<Article, ArticleAdapter.ArticleViewHolder>(ArticleDiffCallback()) {
 
     private val selectedIds = mutableSetOf<Long>()
+    private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
     var selectionMode: Boolean = false
         set(value) {
             field = value
@@ -58,10 +59,6 @@ class ArticleAdapter(
 
     inner class ArticleViewHolder(private val binding: ItemArticleBinding) :
         RecyclerView.ViewHolder(binding.root) {
-
-        companion object {
-            private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-        }
 
         init {
             binding.root.setOnClickListener {

@@ -281,16 +281,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupBackPressed() {
-        val onBackPressedDispatcher = onBackPressedDispatcher
-        onBackPressedDispatcher.addCallback(this) {
-            if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
-                binding.drawerLayout.closeDrawer(GravityCompat.START)
-            } else if (isFabMenuOpen) {
-                toggleFabMenu()
-            } else {
-                isEnabled = false
-                onBackPressedDispatcher.onBackPressed()
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                    binding.drawerLayout.closeDrawer(GravityCompat.START)
+                } else if (isFabMenuOpen) {
+                    toggleFabMenu()
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
             }
-        }
+        })
     }
 }
