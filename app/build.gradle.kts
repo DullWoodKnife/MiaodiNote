@@ -10,16 +10,16 @@ android {
     namespace = "com.miaodi.note"
     compileSdk = 35
 
-    // Signing configuration for CI builds - uses env vars from GitHub Secrets
+    // Signing configuration: both debug and release use fixed keystore for consistent signatures
     signingConfigs {
-        create("release") {
-            val keystorePath = System.getenv("KEYSTORE_PATH") ?: "release.keystore"
+        create("fixed") {
+            val keystorePath = System.getenv("KEYSTORE_PATH") ?: "debug.keystore"
             val keystoreFile = file(keystorePath)
             if (keystoreFile.exists()) {
                 storeFile = keystoreFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-                keyAlias = System.getenv("KEY_ALIAS") ?: ""
-                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "miaodi123"
+                keyAlias = System.getenv("KEY_ALIAS") ?: "miaodi"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: "miaodi123"
             }
         }
     }
@@ -36,12 +36,15 @@ android {
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.findByName("fixed")
+        }
         release {
             isMinifyEnabled = false
-            // Use release signing only when keystore is available (CI builds)
-            val releaseSigning = signingConfigs.findByName("release")
-            if (releaseSigning?.storeFile?.exists() == true) {
-                signingConfig = releaseSigning
+            // Use fixed signing when keystore is available (CI builds)
+            val fixedSigning = signingConfigs.findByName("fixed")
+            if (fixedSigning?.storeFile?.exists() == true) {
+                signingConfig = fixedSigning
             }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
