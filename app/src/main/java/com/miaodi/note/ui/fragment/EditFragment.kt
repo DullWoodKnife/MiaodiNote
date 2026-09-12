@@ -33,6 +33,7 @@ import com.miaodi.note.utils.MarkdownPreviewUtils
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.miaodi.note.utils.Md5Utils
+import com.miaodi.note.utils.PdfExportUtils
 import kotlinx.coroutines.launch
 import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
