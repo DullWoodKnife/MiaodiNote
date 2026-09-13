@@ -52,6 +52,16 @@ class EditOptionsBottomSheet : BottomSheetDialogFragment() {
         binding.btnExportPreview.setOnClickListener { onOptionSelected?.invoke("export_preview"); dismiss() }
     }
 
+    override fun onStart() {
+        super.onStart()
+        // 展开为全内容高度并跳过折叠态，配合内部 NestedScrollView 完整展示 / 滚动所有工具项
+        val dialog = dialog as? com.google.android.material.bottomsheet.BottomSheetDialog ?: return
+        val sheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet) ?: return
+        val behavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(sheet)
+        behavior.skipCollapsed = true
+        behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED
+    }
+
     fun setInfo(chapterName: String, createdAt: String, updatedAt: String) {
         view?.post {
             _binding?.tvChapterName?.text = "当前章节: $chapterName"
