@@ -128,9 +128,21 @@ class EditFragment : Fragment() {
             insets
         }
 
-        // 右上角“更多”按钮：打开工具 / 文章设置面板
-        binding.btnMore.setOnClickListener {
-            showEditOptionsSheet()
+        binding.toolbar.inflateMenu(R.menu.toolbar_menu)
+        binding.toolbar.menu.findItem(R.id.action_search)?.isVisible = false
+        // 强制“更多”三点菜单始终作为图标显示，避免被折叠进溢出菜单而在编辑页“隐藏”
+        binding.toolbar.menu.findItem(R.id.action_more)?.apply {
+            isVisible = true
+            setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_ALWAYS)
+        }
+        binding.toolbar.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.action_more -> {
+                    showEditOptionsSheet()
+                    true
+                }
+                else -> false
+            }
         }
 
         // 状态切换：按钮仅支持 锁定→滑动→锁定 与 渲染→锁定；渲染模式由滑动手势进入
@@ -423,14 +435,6 @@ class EditFragment : Fragment() {
     private fun setupInputAwareBottomToolbar() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             isImeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
-            // 快捷栏跟随软键盘上移，避免被键盘 / 系统导航栏遮挡
-            val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            (binding.bottomToolbar.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-                if (lp.bottomMargin != imeBottom) {
-                    lp.bottomMargin = imeBottom
-                    binding.bottomToolbar.layoutParams = lp
-                }
-            }
             updateBottomToolbarVisibility()
             insets
         }
@@ -451,9 +455,9 @@ class EditFragment : Fragment() {
         val showQuickBar = requireContext()
             .getSharedPreferences("miaodi_settings", Context.MODE_PRIVATE)
             .getBoolean("quick_bar", true)
-        // 仅当软键盘弹出（进入输入模式）时显示快捷栏，未唤起键盘时隐藏
+        val inputMode = isImeVisible || isEditorFocused
         binding.bottomToolbar.visibility =
-            if (showQuickBar && isImeVisible) View.VISIBLE else View.GONE
+            if (showQuickBar && inputMode) View.VISIBLE else View.GONE
     }
 
     /** 根据“优先预览文章”设置，Markdown 文章打开时自动弹出渲染预览 */
