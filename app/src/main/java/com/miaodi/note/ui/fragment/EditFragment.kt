@@ -130,7 +130,11 @@ class EditFragment : Fragment() {
 
         binding.toolbar.inflateMenu(R.menu.toolbar_menu)
         binding.toolbar.menu.findItem(R.id.action_search)?.isVisible = false
-        binding.toolbar.menu.findItem(R.id.action_more)?.isVisible = true
+        // 强制“更多”三点菜单始终作为图标显示，避免被折叠进溢出菜单而在编辑页“隐藏”
+        binding.toolbar.menu.findItem(R.id.action_more)?.apply {
+            isVisible = true
+            setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_ALWAYS)
+        }
         binding.toolbar.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 R.id.action_more -> {
