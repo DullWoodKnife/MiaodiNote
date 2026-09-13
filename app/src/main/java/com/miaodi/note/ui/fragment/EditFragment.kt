@@ -52,7 +52,8 @@ class EditFragment : Fragment() {
 
     /** 编辑器三态：锁定编辑 → 滑动浏览 → MD 只读预览 */
     private enum class EditorMode { LOCKED_EDIT, SLIDE, MD_READONLY }
-    private var currentMode = EditorMode.LOCKED_EDIT
+    // 默认进入“滑动状态”：可编辑 MD 源码，左右滑动进入渲染预览
+    private var currentMode = EditorMode.SLIDE
 
     private var pendingExportType = ""
     private var pendingExportTitle = ""
@@ -133,15 +134,6 @@ class EditFragment : Fragment() {
             showEditOptionsSheet()
         }
 
-        // 状态切换：按钮仅支持 锁定→滑动→锁定 与 渲染→锁定；渲染模式由滑动手势进入
-        binding.btnStatusSwitch.setOnClickListener {
-            currentMode = when (currentMode) {
-                EditorMode.LOCKED_EDIT -> EditorMode.SLIDE
-                EditorMode.SLIDE -> EditorMode.LOCKED_EDIT
-                EditorMode.MD_READONLY -> EditorMode.LOCKED_EDIT
-            }
-            applyMode()
-        }
     }
 
     private fun setupWordCount() {
@@ -168,10 +160,6 @@ class EditFragment : Fragment() {
                 binding.etContent.visibility = View.VISIBLE
                 binding.etContent.isFocusableInTouchMode = true
                 clearFullPreview()
-                binding.btnStatusSwitch.text = "🔒 锁定"
-                binding.btnStatusSwitch.background = androidx.core.content.ContextCompat.getDrawable(
-                    requireContext(), R.drawable.bg_status_switch
-                )
             }
             EditorMode.SLIDE -> {
                 binding.etContent.isEnabled = true
@@ -179,26 +167,12 @@ class EditFragment : Fragment() {
                 binding.etContent.visibility = View.VISIBLE
                 binding.etContent.isFocusableInTouchMode = true
                 clearFullPreview()
-                binding.btnStatusSwitch.text = "↔ 滑动"
-                binding.btnStatusSwitch.background = androidx.core.content.ContextCompat.getDrawable(
-                    requireContext(), R.drawable.bg_status_switch
-                )
-                (binding.btnStatusSwitch.background as? android.graphics.drawable.GradientDrawable)?.setColor(
-                    0xFF4CAF50.toInt()
-                )
             }
             EditorMode.MD_READONLY -> {
                 binding.etContent.isEnabled = false
                 binding.etContent.isFocusableInTouchMode = false
                 binding.etContent.visibility = View.GONE
                 refreshFullPreview()
-                binding.btnStatusSwitch.text = "📖 阅读"
-                binding.btnStatusSwitch.background = androidx.core.content.ContextCompat.getDrawable(
-                    requireContext(), R.drawable.bg_status_switch
-                )
-                (binding.btnStatusSwitch.background as? android.graphics.drawable.GradientDrawable)?.setColor(
-                    0xFFFF9800.toInt()
-                )
             }
         }
     }
@@ -626,22 +600,15 @@ class EditFragment : Fragment() {
                 }
                 "preview" -> showMarkdownPreview()
                 "switch_status" -> {
-                    currentArticle?.let { a ->
-                        val colors = listOf(
-                            0xFFFFA500.toInt(),
-                            0xFF4CAF50.toInt(),
-                            0xFF2196F3.toInt(),
-                            0xFFF44336.toInt(),
-                            0xFF9C27B0.toInt()
-                        )
-                        val currentIndex = colors.indexOf(a.statusColor)
-                        val nextIndex = (currentIndex + 1) % colors.size
-                        a.statusColor = colors[nextIndex]
-                        lifecycleScope.launch {
-                            repository.updateArticle(a)
-                        }
-                        Toast.makeText(requireContext(), "状态已切换", Toast.LENGTH_SHORT).show()
+                    // 在“滑动状态”与“锁定状态”之间切换，并弹出当前状态提示
+                    currentMode = if (currentMode == EditorMode.LOCKED_EDIT) {
+                        EditorMode.SLIDE
+                    } else {
+                        EditorMode.LOCKED_EDIT
                     }
+                    applyMode()
+                    val label = if (currentMode == EditorMode.SLIDE) "滑动状态" else "锁定状态"
+                    Toast.makeText(requireContext(), label, Toast.LENGTH_SHORT).show()
                 }
                 "encrypt" -> showEncryptDialog()
                 "decrypt" -> showDecryptDialog()

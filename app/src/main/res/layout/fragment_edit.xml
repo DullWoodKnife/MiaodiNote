@@ -28,18 +28,6 @@
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/btnStatusSwitch"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:text="🔒 锁定"
-                android:textColor="@android:color/white"
-                android:textSize="13sp"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="4dp"
-                android:background="@drawable/bg_status_switch" />
-
             <Space
                 android:layout_width="0dp"
                 android:layout_height="1dp"
