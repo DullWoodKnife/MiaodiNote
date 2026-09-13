@@ -115,6 +115,32 @@ class MainActivity : AppCompatActivity() {
                 binding.fabNewFolder.visibility = View.GONE
                 binding.fabNewDoc.visibility = View.GONE
             }
+            // 仅在主界面保留 NavHost 与 AppBar 的滚动联动（内容位于工具栏下方）；
+            // 其他页面隐藏全局 AppBar 后需移除该联动，避免 NavHost 仍按 AppBar 高度
+            // 向下偏移而在页面顶部留下空白带（如“任务安排”页）。
+            (binding.navHostFragment.layoutParams as? androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams)?.let { lp ->
+                lp.behavior = if (isMain)
+                    com.google.android.material.appbar.AppBarLayout.ScrollingViewBehavior()
+                else
+                    null
+                binding.navHostFragment.layoutParams = lp
+            }
+        }
+    }
+
+    /**
+     * 多选模式下隐藏右下角悬浮按钮（+ 及其子按钮），
+     * 避免与多选操作栏（删除/取消）发生布局重叠。
+     */
+    fun setFabMenuVisibleForSelection(visible: Boolean) {
+        if (visible) {
+            binding.fabMain.visibility = View.VISIBLE
+        } else {
+            binding.fabMain.visibility = View.GONE
+            binding.fabNewFolder.visibility = View.GONE
+            binding.fabNewDoc.visibility = View.GONE
+            isFabMenuOpen = false
+            binding.fabMain.setImageResource(R.drawable.ic_add)
         }
     }
 

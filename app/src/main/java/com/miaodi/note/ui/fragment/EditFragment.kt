@@ -97,6 +97,7 @@ class EditFragment : Fragment() {
         setupBottomToolbar()
         setupSwipeGesture()
         applyEditorPreferences()
+        setupInputAwareBottomToolbar()
         loadOrCreateArticle()
 
         // 确保 Toolbar 不被系统状态栏覆盖，留出顶部安全区域
@@ -413,9 +414,46 @@ class EditFragment : Fragment() {
         }
         binding.etContent.highlightColor = cursorColor or 0x33000000
 
-        // 4) 快捷栏显示设置
-        val showQuickBar = prefs.getBoolean("quick_bar", true)
-        binding.bottomToolbar.visibility = if (showQuickBar) View.VISIBLE else View.GONE
+        // 4) 快捷栏显示设置：仅在键盘输入模式下显示
+        updateBottomToolbarVisibility()
+    }
+
+    /** IME（软键盘）是否可见 */
+    private var isImeVisible = false
+
+    /** 标题/正文编辑框是否获得焦点 */
+    private var isEditorFocused = false
+
+    /**
+     * 底部快捷工具栏仅在键盘输入模式（软键盘弹出或编辑框获得焦点）时显示，
+     * 未进入输入模式时隐藏；同时受设置页“快捷栏”总开关约束。
+     */
+    private fun setupInputAwareBottomToolbar() {
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            isImeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
+            updateBottomToolbarVisibility()
+            insets
+        }
+        val focusListener = View.OnFocusChangeListener { _, _ ->
+            if (_binding == null) return@OnFocusChangeListener
+            isEditorFocused = binding.etTitle.hasFocus() || binding.etContent.hasFocus()
+            updateBottomToolbarVisibility()
+        }
+        binding.etTitle.setOnFocusChangeListener(focusListener)
+        binding.etContent.setOnFocusChangeListener(focusListener)
+        // 初始状态：未进入输入模式，先隐藏
+        updateBottomToolbarVisibility()
+    }
+
+    /** 根据“快捷栏”设置与键盘输入模式刷新底部快捷工具栏的显隐 */
+    private fun updateBottomToolbarVisibility() {
+        if (_binding == null) return
+        val showQuickBar = requireContext()
+            .getSharedPreferences("miaodi_settings", Context.MODE_PRIVATE)
+            .getBoolean("quick_bar", true)
+        val inputMode = isImeVisible || isEditorFocused
+        binding.bottomToolbar.visibility =
+            if (showQuickBar && inputMode) View.VISIBLE else View.GONE
     }
 
     /** 根据“优先预览文章”设置，Markdown 文章打开时自动弹出渲染预览 */

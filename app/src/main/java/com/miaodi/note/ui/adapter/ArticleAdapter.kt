@@ -44,6 +44,15 @@ class ArticleAdapter(
         onSelectionChanged()
     }
 
+    /** 全选当前列表中的所有文章 */
+    fun selectAll() {
+        selectionMode = true
+        selectedIds.clear()
+        selectedIds.addAll(currentList.map { it.id })
+        notifyDataSetChanged()
+        onSelectionChanged()
+    }
+
     fun getSelectedArticles(): List<Article> {
         return currentList.filter { selectedIds.contains(it.id) }
     }

@@ -92,12 +92,27 @@ class MainFragment : Fragment() {
         binding.btnCancelSelect.setOnClickListener {
             articleAdapter.resetSelection()
         }
+        // 中间“更多”按钮：全选 / 取消全选
+        binding.btnMoreSelected.setOnClickListener { anchor ->
+            val popup = androidx.appcompat.widget.PopupMenu(requireContext(), anchor)
+            popup.menu.add(0, 1, 0, "全选")
+            popup.menu.add(0, 2, 1, "取消全选")
+            popup.setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    1 -> articleAdapter.selectAll()
+                    2 -> articleAdapter.resetSelection()
+                }
+                true
+            }
+            popup.show()
+        }
     }
 
     private fun updateMultiSelectBar() {
         val count = articleAdapter.selectedCount
         binding.layoutMultiSelect.visibility = if (count > 0) View.VISIBLE else View.GONE
-        binding.tvSelectedCount.text = "已选择 $count 篇"
+        // 多选模式下隐藏右下角“+”悬浮按钮，避免与多选操作栏重叠
+        (activity as? com.miaodi.note.ui.MainActivity)?.setFabMenuVisibleForSelection(count == 0)
     }
 
     private fun observeViewModel() {

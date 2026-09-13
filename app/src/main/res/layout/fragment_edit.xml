@@ -14,15 +14,14 @@
         app:navigationIconTint="@android:color/white">
 
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
             <TextView
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:text="编辑文章"
                 android:textColor="@android:color/white"
                 android:textSize="18sp"
@@ -32,6 +31,7 @@
                 android:id="@+id/btnStatusSwitch"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
                 android:text="🔒 锁定"
                 android:textColor="@android:color/white"
                 android:textSize="13sp"
@@ -41,6 +41,18 @@
                 android:layout_marginEnd="12dp" />
         </LinearLayout>
     </com.google.android.material.appbar.MaterialToolbar>
+
+    <!-- 字数统计：位于标题栏右上角（三点菜单正下方） -->
+    <TextView
+        android:id="@+id/tvWordCount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:layout_marginTop="6dp"
+        android:layout_marginEnd="16dp"
+        android:text="字数: 0"
+        android:textSize="12sp"
+        android:textColor="?attr/colorOnSurfaceVariant" />
 
     <EditText
         android:id="@+id/etTitle"
@@ -84,16 +96,6 @@
             android:background="?attr/colorSurface"
             android:visibility="gone" />
     </FrameLayout>
-
-    <TextView
-        android:id="@+id/tvWordCount"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:layout_margin="16dp"
-        android:text="字数: 0"
-        android:textSize="12sp"
-        android:textColor="?attr/colorOnSurfaceVariant" />
 
     <!-- 底部快捷工具栏 -->
     <LinearLayout

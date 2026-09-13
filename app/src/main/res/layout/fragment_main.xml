@@ -24,46 +24,44 @@
         android:textColor="?android:attr/textColorSecondary"
         android:visibility="gone" />
 
-    <!-- 多选底部操作栏 -->
-    <LinearLayout
+    <!-- 多选底部操作栏：三个圆形按钮（删除 / 更多 / 取消） -->
+    <FrameLayout
         android:id="@+id/layoutMultiSelect"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingHorizontal="16dp"
-        android:paddingVertical="10dp"
-        android:background="?attr/colorSurface"
-        android:elevation="8dp"
+        android:paddingHorizontal="28dp"
+        android:paddingVertical="24dp"
         android:visibility="gone">
 
-        <TextView
-            android:id="@+id/tvSelectedCount"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="已选择 0 篇"
-            android:textSize="14sp"
-            android:textColor="?attr/colorOnSurface" />
-
-        <com.google.android.material.button.MaterialButton
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/btnDeleteSelected"
-            style="@style/Widget.Material3.Button.TonalButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="删除"
-            android:textColor="@color/status_red"
-            app:icon="@drawable/ic_delete"
-            app:iconTint="@color/status_red" />
+            android:layout_gravity="start|center_vertical"
+            android:contentDescription="删除"
+            app:backgroundTint="@color/status_red"
+            app:srcCompat="@drawable/ic_delete"
+            app:tint="@android:color/white" />
 
-        <ImageButton
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btnMoreSelected"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:contentDescription="更多"
+            app:backgroundTint="@color/primary"
+            app:srcCompat="@drawable/ic_more_vertical"
+            app:tint="@android:color/white" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/btnCancelSelect"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="8dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_close"
-            android:contentDescription="取消" />
-    </LinearLayout>
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end|center_vertical"
+            android:contentDescription="取消"
+            app:backgroundTint="@color/amber"
+            app:srcCompat="@drawable/ic_close"
+            app:tint="@android:color/white" />
+    </FrameLayout>
 </FrameLayout>
