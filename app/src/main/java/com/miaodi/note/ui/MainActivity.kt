@@ -101,6 +101,13 @@ class MainActivity : AppCompatActivity() {
         )
 
         navController.addOnDestinationChangedListener { _, destination, _ ->
+            // 同步侧边栏选中高亮：确保从 Todo/设置/关于返回“记录”时高亮也会刷新
+            when (destination.id) {
+                R.id.mainFragment -> binding.navigationView.setCheckedItem(R.id.nav_records)
+                R.id.todoFragment -> binding.navigationView.setCheckedItem(R.id.nav_todo)
+                R.id.settingsFragment -> binding.navigationView.setCheckedItem(R.id.nav_settings)
+                R.id.aboutFragment -> binding.navigationView.setCheckedItem(R.id.nav_about)
+            }
             val isMain = destination.id == R.id.mainFragment
             if (isMain) {
                 binding.appBarLayout.visibility = View.VISIBLE
@@ -268,6 +275,7 @@ class MainActivity : AppCompatActivity() {
             binding.drawerLayout.closeDrawer(GravityCompat.START)
             when (menuItem.itemId) {
                 R.id.nav_records -> {
+                    binding.navigationView.setCheckedItem(R.id.nav_records)
                     if (navController.currentDestination?.id != R.id.mainFragment) {
                         navController.navigate(R.id.mainFragment)
                     }

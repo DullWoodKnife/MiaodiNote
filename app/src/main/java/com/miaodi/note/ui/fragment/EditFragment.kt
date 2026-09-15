@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -183,11 +184,17 @@ class EditFragment : Fragment() {
     private var isGestureConsuming = false
     private var previewWebView: WebView? = null
 
-    /** 统一的横向滑动手势：锁定态返回 false（不可滑动），滑动/渲染态消费横向拖动 */
+    /**
+     * 统一的横向滑动手势：
+     * - 锁定态：不响应滑动（返回 false）。
+     * - 滑动态（MD 源码）：右滑 → 进入 MD 渲染模式。
+     * - 渲染态（MD 预览）：左滑 → 返回 MD 源码（滑动状态）。
+     * 不再触发相邻文章切换，避免误产生“文章副本”。
+     */
     private val swipeTouchListener = View.OnTouchListener { _, event ->
         when (currentMode) {
             EditorMode.LOCKED_EDIT -> false
-            EditorMode.SLIDE, EditorMode.MD_READONLY -> {
+            EditorMode.SLIDE -> {
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         swipeDownX = event.x
@@ -198,15 +205,39 @@ class EditFragment : Fragment() {
                     MotionEvent.ACTION_MOVE -> {
                         val dx = event.x - swipeDownX
                         val dy = event.y - swipeDownY
-                        if (!isGestureConsuming && kotlin.math.abs(dx) > 60 && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2) {
+                        // 右滑：dx > 0 且以横向为主
+                        if (!isGestureConsuming && dx > 60 && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2) {
                             isGestureConsuming = true
-                            loadAdjacentArticle(if (dx < 0) +1 else -1)
-                            if (currentMode == EditorMode.SLIDE) {
-                                currentMode = EditorMode.MD_READONLY
-                                applyMode()
-                            } else {
-                                refreshFullPreview()
-                            }
+                            currentMode = EditorMode.MD_READONLY
+                            applyMode()
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        isGestureConsuming = false
+                        false
+                    }
+                    else -> false
+                }
+            }
+            EditorMode.MD_READONLY -> {
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        swipeDownX = event.x
+                        swipeDownY = event.y
+                        isGestureConsuming = false
+                        false
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = event.x - swipeDownX
+                        val dy = event.y - swipeDownY
+                        // 左滑：dx < 0 且以横向为主 → 回到源码模式
+                        if (!isGestureConsuming && dx < -60 && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2) {
+                            isGestureConsuming = true
+                            currentMode = EditorMode.SLIDE
+                            applyMode()
                             true
                         } else {
                             false
@@ -390,18 +421,26 @@ class EditFragment : Fragment() {
     /** 标题/正文编辑框是否获得焦点 */
     private var isEditorFocused = false
 
+    /** 是否检测到物理/蓝牙外接键盘输入 */
+    private var isHardwareKeyboardActive = false
+
     /**
-     * 底部快捷工具栏仅在键盘输入模式（软键盘弹出或编辑框获得焦点）时显示，
+     * 底部快捷工具栏在键盘输入模式时显示：
+     * - 软键盘（IME）弹出，或
+     * - 外接键盘（蓝牙/有线）激活且编辑框获得焦点。
      * 未进入输入模式时隐藏；同时受设置页“快捷栏”总开关约束。
      */
     private fun setupInputAwareBottomToolbar() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             isImeVisible = insets.isVisible(WindowInsetsCompat.Type.ime())
-            // 快捷栏跟随软键盘上移，避免被键盘 / 系统导航栏遮挡
+            // 快捷栏上移量取“软键盘”与“系统导航栏”二者的较大值，
+            // 保证既跟随软键盘，又不会与系统导航栏图标重叠。
             val imeBottom = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val sysBarBottom = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+            val lift = maxOf(imeBottom, sysBarBottom)
             (binding.bottomToolbar.layoutParams as? ViewGroup.MarginLayoutParams)?.let { lp ->
-                if (lp.bottomMargin != imeBottom) {
-                    lp.bottomMargin = imeBottom
+                if (lp.bottomMargin != lift) {
+                    lp.bottomMargin = lift
                     binding.bottomToolbar.layoutParams = lp
                 }
             }
@@ -415,6 +454,27 @@ class EditFragment : Fragment() {
         }
         binding.etTitle.setOnFocusChangeListener(focusListener)
         binding.etContent.setOnFocusChangeListener(focusListener)
+        // 外接键盘支持：来源为真实设备（deviceId != -1）的按键即视为键盘输入激活；
+        // 同时提供 Ctrl+S 保存 / Ctrl+Z 撤销 / Ctrl+Y 重做的物理键盘快捷操作。
+        val keyListener = View.OnKeyListener { _, keyCode, event ->
+            if (_binding == null) return@OnKeyListener false
+            if (event.deviceId != -1) {
+                isHardwareKeyboardActive = true
+                updateBottomToolbarVisibility()
+            }
+            if (event.action == KeyEvent.ACTION_DOWN && event.isCtrlPressed) {
+                when (keyCode) {
+                    KeyEvent.KEYCODE_S -> { saveArticle(); true }
+                    KeyEvent.KEYCODE_Z -> { undo(); true }
+                    KeyEvent.KEYCODE_Y -> { redo(); true }
+                    else -> false
+                }
+            } else {
+                false
+            }
+        }
+        binding.etTitle.setOnKeyListener(keyListener)
+        binding.etContent.setOnKeyListener(keyListener)
         // 初始状态：未进入输入模式，先隐藏
         updateBottomToolbarVisibility()
     }
@@ -425,9 +485,10 @@ class EditFragment : Fragment() {
         val showQuickBar = requireContext()
             .getSharedPreferences("miaodi_settings", Context.MODE_PRIVATE)
             .getBoolean("quick_bar", true)
-        // 仅当软键盘弹出（进入输入模式）时显示快捷栏，未唤起键盘时隐藏
+        // 软键盘弹出，或（外接键盘激活且编辑框聚焦）时显示快捷栏
+        val inputMode = isImeVisible || (isHardwareKeyboardActive && isEditorFocused)
         binding.bottomToolbar.visibility =
-            if (showQuickBar && isImeVisible) View.VISIBLE else View.GONE
+            if (showQuickBar && inputMode) View.VISIBLE else View.GONE
     }
 
     /** 根据“优先预览文章”设置，Markdown 文章打开时自动弹出渲染预览 */
