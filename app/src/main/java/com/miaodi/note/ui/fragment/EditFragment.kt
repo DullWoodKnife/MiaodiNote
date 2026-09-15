@@ -227,7 +227,16 @@ class EditFragment : Fragment() {
                         }
                     }
                     MotionEvent.ACTION_UP -> {
+                        val wasConsuming = isGestureConsuming
                         isGestureConsuming = false
+                        // 未发生滑动时为“点击”：滑动状态且 MD 源码模式下点击源码界面才进入编辑态（弹出键盘）
+                        if (!wasConsuming) {
+                            val dx = event.x - swipeDownX
+                            val dy = event.y - swipeDownY
+                            if (kotlin.math.abs(dx) < 20 && kotlin.math.abs(dy) < 20) {
+                                enableContentEditing()
+                            }
+                        }
                         false
                     }
                     else -> false
@@ -244,8 +253,8 @@ class EditFragment : Fragment() {
                     MotionEvent.ACTION_MOVE -> {
                         val dx = event.x - swipeDownX
                         val dy = event.y - swipeDownY
-                        // 左滑：dx < 0 且以横向为主 → 回到源码模式
-                        if (!isGestureConsuming && dx < -60 && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2) {
+                        // 右滑：dx > 0 且以横向为主 → 回到源码模式
+                        if (!isGestureConsuming && dx > 60 && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2) {
                             isGestureConsuming = true
                             currentMode = EditorMode.SLIDE
                             applyMode()
