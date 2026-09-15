@@ -1,6 +1,7 @@
 package com.miaodi.note.ui.fragment
 
 import android.app.Activity
+import android.app.Dialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -15,6 +16,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Toast
@@ -48,6 +50,8 @@ class EditFragment : Fragment() {
 
     private lateinit var repository: NoteRepository
     private var currentArticle: Article? = null
+    // 新建文章插入进行中标记：避免返回键 / 工具栏 / onPause 重复触发导致插入两条相同文章
+    private var isNewArticleInsertPending = false
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
     private val titleDateFormat = SimpleDateFormat("yyyy-MM-dd(HHmmss)", Locale.getDefault())
 
@@ -101,6 +105,8 @@ class EditFragment : Fragment() {
         applyEditorPreferences()
         setupInputAwareBottomToolbar()
         loadOrCreateArticle()
+        // 初始应用默认“滑动状态”模式（不自动进入编辑态）
+        applyMode()
 
         // 确保 Toolbar 不被系统状态栏覆盖，留出顶部安全区域
         ViewCompat.setOnApplyWindowInsetsListener(binding.toolbar) { v, insets ->
@@ -157,16 +163,21 @@ class EditFragment : Fragment() {
         when (currentMode) {
             EditorMode.LOCKED_EDIT -> {
                 binding.etContent.isEnabled = true
-                binding.etContent.setTextIsSelectable(true)
                 binding.etContent.visibility = View.VISIBLE
+                binding.etContent.isFocusable = true
+                binding.etContent.setTextIsSelectable(true)
                 binding.etContent.isFocusableInTouchMode = true
                 clearFullPreview()
             }
             EditorMode.SLIDE -> {
                 binding.etContent.isEnabled = true
-                binding.etContent.setTextIsSelectable(true)
                 binding.etContent.visibility = View.VISIBLE
-                binding.etContent.isFocusableInTouchMode = true
+                // 未点击内容前不进入编辑态：禁用触摸聚焦并清除焦点，避免自动弹出键盘
+                binding.etContent.isFocusableInTouchMode = false
+                binding.etContent.isFocusable = false
+                binding.etContent.setTextIsSelectable(false)
+                binding.etContent.clearFocus()
+                hideKeyboard()
                 clearFullPreview()
             }
             EditorMode.MD_READONLY -> {
@@ -187,8 +198,8 @@ class EditFragment : Fragment() {
     /**
      * 统一的横向滑动手势：
      * - 锁定态：不响应滑动（返回 false）。
-     * - 滑动态（MD 源码）：右滑 → 进入 MD 渲染模式。
-     * - 渲染态（MD 预览）：左滑 → 返回 MD 源码（滑动状态）。
+     * - 滑动态（MD 源码）：左滑 → 进入 MD 渲染模式。
+     * - 渲染态（MD 预览）：右滑 → 返回 MD 源码（滑动状态）。
      * 不再触发相邻文章切换，避免误产生“文章副本”。
      */
     private val swipeTouchListener = View.OnTouchListener { _, event ->
@@ -205,8 +216,8 @@ class EditFragment : Fragment() {
                     MotionEvent.ACTION_MOVE -> {
                         val dx = event.x - swipeDownX
                         val dy = event.y - swipeDownY
-                        // 右滑：dx > 0 且以横向为主
-                        if (!isGestureConsuming && dx > 60 && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2) {
+                        // 左滑：dx < 0 且以横向为主 → 进入 MD 渲染预览
+                        if (!isGestureConsuming && dx < -60 && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2) {
                             isGestureConsuming = true
                             currentMode = EditorMode.MD_READONLY
                             applyMode()
@@ -256,6 +267,28 @@ class EditFragment : Fragment() {
     private fun setupSwipeGesture() {
         binding.etContent.setOnTouchListener(swipeTouchListener)
         binding.contentContainer.setOnTouchListener(swipeTouchListener)
+        // 滑动状态下点击正文后才进入编辑态（不点击不自动进入编辑）
+        binding.etContent.setOnClickListener {
+            if (currentMode == EditorMode.SLIDE) {
+                enableContentEditing()
+            }
+        }
+    }
+
+    /** 滑动状态下点击正文后进入编辑态：恢复触摸聚焦并弹出软键盘 */
+    private fun enableContentEditing() {
+        binding.etContent.isFocusable = true
+        binding.etContent.isFocusableInTouchMode = true
+        binding.etContent.setTextIsSelectable(true)
+        binding.etContent.requestFocus()
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.showSoftInput(binding.etContent, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    /** 收起软键盘 */
+    private fun hideKeyboard() {
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(binding.etContent.windowToken, 0)
     }
 
     /** 整页 Markdown 渲染预览（占据内容区） */
@@ -500,7 +533,7 @@ class EditFragment : Fragment() {
         }
     }
 
-    /** 用 WebView 渲染 Markdown 预览（样式跟随设置页“自定义Markdown样式”） */
+    /** 全屏 Markdown 预览：铺满屏幕、无标题栏、无右下角关闭按钮，可横向滑动或返回键退出 */
     private fun showMarkdownPreview() {
         val prefs = requireContext().getSharedPreferences("miaodi_settings", Context.MODE_PRIVATE)
         val mdStyle = prefs.getString("md_style", "默认") ?: "默认"
@@ -510,15 +543,53 @@ class EditFragment : Fragment() {
         val webView = WebView(requireContext()).apply {
             settings.javaScriptEnabled = false
             settings.textZoom = 100
+            setBackgroundColor(android.graphics.Color.WHITE)
             loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
         }
-        val density = resources.displayMetrics.density
-        val padding = (24 * density).toInt()
-        AlertDialog.Builder(requireContext())
-            .setTitle("Markdown 预览")
-            .setView(webView, padding, padding, padding, padding)
-            .setPositiveButton("关闭", null)
-            .show()
+
+        val container = android.widget.FrameLayout(requireContext()).apply {
+            setBackgroundColor(android.graphics.Color.WHITE)
+            addView(
+                webView,
+                android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            )
+        }
+
+        val dialog = Dialog(requireContext(), android.R.style.Theme_Material_Light_NoActionBar_Fullscreen)
+        dialog.setContentView(container)
+        dialog.window?.setLayout(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT
+        )
+
+        // 手势退出：横向滑动即关闭预览（无关闭按钮）
+        var downX = 0f
+        var downY = 0f
+        webView.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = event.x
+                    downY = event.y
+                    false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.x - downX
+                    val dy = event.y - downY
+                    if (kotlin.math.abs(dx) > 120 && kotlin.math.abs(dx) > kotlin.math.abs(dy) * 2) {
+                        dialog.dismiss()
+                        true
+                    } else {
+                        false
+                    }
+                }
+                else -> false
+            }
+        }
+        dialog.setOnDismissListener { webView.destroy() }
+        dialog.show()
     }
 
     private fun insertAtCursor(editText: EditText, text: String) {
@@ -619,10 +690,17 @@ class EditFragment : Fragment() {
                 isNew = false
             )
 
+            if (newArticle.id == 0L) {
+                // 新建文章：若插入已在进行中则跳过，避免返回键/工具栏/onPause 重复插入产生两条相同文章
+                if (isNewArticleInsertPending) return
+                isNewArticleInsertPending = true
+            }
+
             lifecycleScope.launch {
                 if (newArticle.id == 0L) {
                     val newId = repository.insertArticle(newArticle)
                     currentArticle = newArticle.copy(id = newId)
+                    isNewArticleInsertPending = false
                 } else {
                     repository.updateArticle(newArticle)
                     currentArticle = newArticle
