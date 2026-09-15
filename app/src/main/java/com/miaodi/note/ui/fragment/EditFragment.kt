@@ -105,6 +105,7 @@ class EditFragment : Fragment() {
         applyEditorPreferences()
         setupInputAwareBottomToolbar()
         loadOrCreateArticle()
+        applySavedEditorAppearance()
         // 初始应用默认“滑动状态”模式（不自动进入编辑态）
         applyMode()
 
@@ -778,6 +779,9 @@ class EditFragment : Fragment() {
         val sheet = EditorSettingsBottomSheet.newInstance()
         sheet.onInsertText = { text -> insertAtCursor(binding.etContent, text) }
         sheet.onTextTransform = { action -> applyTextTransform(action) }
+        sheet.onTitleFontSizeChanged = { size -> applyTitleFontSize(size) }
+        sheet.onBodyFontSizeChanged = { size -> applyBodyFontSize(size) }
+        sheet.onTextSpacingChanged = { spacing -> applyTextSpacing(spacing) }
         sheet.onLineSpacingChanged = { spacing -> applyLineSpacing(spacing) }
         sheet.onSettingChanged = { key, checked ->
             when (key) {
@@ -790,10 +794,34 @@ class EditFragment : Fragment() {
         sheet.show(parentFragmentManager, "EditorSettingsSheet")
     }
 
+    /** 应用标题字体大小 */
+    private fun applyTitleFontSize(size: Int) {
+        binding.etTitle.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, size.toFloat())
+    }
+
+    /** 应用文章正文字体大小 */
+    private fun applyBodyFontSize(size: Int) {
+        binding.etContent.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, size.toFloat())
+    }
+
+    /** 应用文本间距（字间距近似实现） */
+    private fun applyTextSpacing(spacing: Int) {
+        binding.etContent.letterSpacing = (spacing - 5).toFloat() / 50f
+    }
+
     /** 应用文本行距（单位：sp 的倍数近似） */
     private fun applyLineSpacing(spacing: Int) {
         val dp = spacing.toFloat()
         binding.etContent.setLineSpacing(0f, 1f + dp / 20f)
+    }
+
+    /** 读取并应用已保存的编辑器外观设置（字体大小/间距/行距） */
+    private fun applySavedEditorAppearance() {
+        val prefs = requireContext().getSharedPreferences("miaodi_settings", Context.MODE_PRIVATE)
+        applyTitleFontSize(prefs.getInt("title_font_size", 18))
+        applyBodyFontSize(prefs.getInt("body_font_size", 14))
+        applyTextSpacing(prefs.getInt("text_spacing", 5))
+        applyLineSpacing(prefs.getInt("text_line_spacing", 12))
     }
 
     /** 对正文执行常见的文本格式整理 */

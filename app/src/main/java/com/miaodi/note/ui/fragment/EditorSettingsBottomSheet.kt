@@ -8,13 +8,15 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.CheckBox
 import android.widget.SeekBar
+import android.widget.TextView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.miaodi.note.databinding.BottomSheetEditorSettingsBinding
 
 /**
- * “编辑器设置”面板：包含 快捷栏 / 编辑器设置 / 文本格式 三个标签页。
+ * “编辑器设置”面板：包含 快捷栏 / 编辑器设置 / 文本格式 三个标签页，支持左右滑动切换。
  * - 快捷栏：向正文光标处插入常用 Markdown 片段
- * - 编辑器设置：文本行距滑块 + 同步滑动 / 所见即所得模式 / 写作模式 / 专注模式
+ * - 编辑器设置：标题字体大小 / 文章字体大小 / 文本间距 / 文本行距 四个滑块 +
+ *               同步滑动 / 所见即所得模式 / 写作模式 / 专注模式 复选框
  * - 文本格式：对正文执行常见的段落/空格整理操作
  */
 class EditorSettingsBottomSheet : BottomSheetDialogFragment() {
@@ -26,12 +28,19 @@ class EditorSettingsBottomSheet : BottomSheetDialogFragment() {
     var onInsertText: ((String) -> Unit)? = null
     /** 对正文执行文本格式整理，参数为操作标识 */
     var onTextTransform: ((String) -> Unit)? = null
+    /** 标题字体大小变化 */
+    var onTitleFontSizeChanged: ((Int) -> Unit)? = null
+    /** 文章字体大小变化 */
+    var onBodyFontSizeChanged: ((Int) -> Unit)? = null
+    /** 文本间距变化 */
+    var onTextSpacingChanged: ((Int) -> Unit)? = null
     /** 文本行距变化 */
     var onLineSpacingChanged: ((Int) -> Unit)? = null
     /** 复选框设置变化（key, checked） */
     var onSettingChanged: ((String, Boolean) -> Unit)? = null
 
     private lateinit var prefs: SharedPreferences
+    private var currentTab = 1
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -50,23 +59,26 @@ class EditorSettingsBottomSheet : BottomSheetDialogFragment() {
         binding.tabEditor.setOnClickListener { selectTab(1) }
         binding.tabFormat.setOnClickListener { selectTab(2) }
 
-        // 文本行距
-        val spacing = prefs.getInt("text_line_spacing", 12)
-        binding.tvLineSpacing.text = "文本行距:$spacing"
-        binding.seekLineSpacing.max = 30
-        binding.seekLineSpacing.progress = spacing
-        binding.seekLineSpacing.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                binding.tvLineSpacing.text = "文本行距:$progress"
-                if (fromUser) {
-                    prefs.edit().putInt("text_line_spacing", progress).apply()
-                    onLineSpacingChanged?.invoke(progress)
-                }
-            }
+        // 左右滑动切换标签页
+        binding.panelContainer.onSwipeLeft = { selectTab(currentTab + 1) }
+        binding.panelContainer.onSwipeRight = { selectTab(currentTab - 1) }
 
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-        })
+        // 标题字体大小（默认 18）
+        bindSeek(binding.seekTitleFontSize, binding.tvTitleFontSize, "标题字体内容", "title_font_size", 18, 40) { v ->
+            onTitleFontSizeChanged?.invoke(v)
+        }
+        // 文章字体大小（默认 14）
+        bindSeek(binding.seekBodyFontSize, binding.tvBodyFontSize, "文章字体内容", "body_font_size", 14, 30) { v ->
+            onBodyFontSizeChanged?.invoke(v)
+        }
+        // 文本间距（默认 5）
+        bindSeek(binding.seekTextSpacing, binding.tvTextSpacing, "文本间距", "text_spacing", 5, 20) { v ->
+            onTextSpacingChanged?.invoke(v)
+        }
+        // 文本行距（默认 12）
+        bindSeek(binding.seekLineSpacing, binding.tvLineSpacing, "文本行距", "text_line_spacing", 12, 30) { v ->
+            onLineSpacingChanged?.invoke(v)
+        }
 
         // 复选框
         bindCheck(binding.cbSyncScroll, "sync_scroll")
@@ -104,6 +116,33 @@ class EditorSettingsBottomSheet : BottomSheetDialogFragment() {
         selectTab(1)
     }
 
+    private fun bindSeek(
+        seekBar: SeekBar,
+        label: TextView,
+        name: String,
+        key: String,
+        default: Int,
+        max: Int,
+        onChange: (Int) -> Unit
+    ) {
+        val value = prefs.getInt(key, default)
+        label.text = "$name:$value"
+        seekBar.max = max
+        seekBar.progress = value
+        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
+                label.text = "$name:$progress"
+                if (fromUser) {
+                    prefs.edit().putInt(key, progress).apply()
+                    onChange(progress)
+                }
+            }
+
+            override fun onStartTrackingTouch(sb: SeekBar?) {}
+            override fun onStopTrackingTouch(sb: SeekBar?) {}
+        })
+    }
+
     private fun bindCheck(cb: CheckBox, key: String) {
         cb.isChecked = prefs.getBoolean(key, false)
         cb.setOnCheckedChangeListener { _, checked ->
@@ -113,14 +152,15 @@ class EditorSettingsBottomSheet : BottomSheetDialogFragment() {
     }
 
     private fun selectTab(index: Int) {
-        binding.panelQuick.visibility = if (index == 0) View.VISIBLE else View.GONE
-        binding.panelEditor.visibility = if (index == 1) View.VISIBLE else View.GONE
-        binding.panelFormat.visibility = if (index == 2) View.VISIBLE else View.GONE
+        currentTab = index.coerceIn(0, 2)
+        binding.panelQuick.visibility = if (currentTab == 0) View.VISIBLE else View.GONE
+        binding.panelEditor.visibility = if (currentTab == 1) View.VISIBLE else View.GONE
+        binding.panelFormat.visibility = if (currentTab == 2) View.VISIBLE else View.GONE
         val active = 0xFFFFC107.toInt()
         val normal = 0xFFFFFFFF.toInt()
-        binding.tabQuick.setTextColor(if (index == 0) active else normal)
-        binding.tabEditor.setTextColor(if (index == 1) active else normal)
-        binding.tabFormat.setTextColor(if (index == 2) active else normal)
+        binding.tabQuick.setTextColor(if (currentTab == 0) active else normal)
+        binding.tabEditor.setTextColor(if (currentTab == 1) active else normal)
+        binding.tabFormat.setTextColor(if (currentTab == 2) active else normal)
     }
 
     override fun onStart() {

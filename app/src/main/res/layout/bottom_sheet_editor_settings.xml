@@ -13,7 +13,7 @@
         android:layout_marginBottom="6dp"
         android:background="#FF555555" />
 
-    <!-- 三个标签：快捷栏 / 编辑器设置 / 文本格式 -->
+    <!-- 三个标签：快捷栏 / 编辑器设置 / 文本格式（可滑动切换） -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -55,216 +55,268 @@
             android:textSize="16sp" />
     </LinearLayout>
 
-    <!-- ============ 快捷栏 ============ -->
-    <LinearLayout
-        android:id="@+id/panelQuick"
+    <!-- 可滑动的面板容器：左右滑动切换三个标签页 -->
+    <com.miaodi.note.ui.widget.SwipeFrameLayout
+        android:id="@+id/panelContainer"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingHorizontal="8dp"
-        android:paddingBottom="12dp"
-        android:visibility="gone">
+        android:layout_height="wrap_content">
 
-        <!-- Row 1 -->
+        <!-- ============ 快捷栏 ============ -->
         <LinearLayout
+            android:id="@+id/panelQuick"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:paddingHorizontal="8dp"
+            android:paddingBottom="12dp"
+            android:visibility="gone">
 
-            <TextView
-                android:id="@+id/qbTab"
-                style="@style/EditorQuickBtn"
-                android:text="-&gt;|" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/qbHeading"
-                style="@style/EditorQuickBtn"
-                android:text="H" />
+                <TextView
+                    android:id="@+id/qbTab"
+                    style="@style/EditorQuickBtn"
+                    android:text="-&gt;|" />
 
-            <TextView
-                android:id="@+id/qbBold"
-                style="@style/EditorQuickBtn"
-                android:text="B"
-                android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/qbHeading"
+                    style="@style/EditorQuickBtn"
+                    android:text="H" />
 
-            <TextView
-                android:id="@+id/qbItalic"
-                style="@style/EditorQuickBtn"
-                android:text="I"
-                android:textStyle="italic" />
+                <TextView
+                    android:id="@+id/qbBold"
+                    style="@style/EditorQuickBtn"
+                    android:text="B"
+                    android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/qbQuote"
-                style="@style/EditorQuickBtn"
-                android:text="&gt;" />
+                <TextView
+                    android:id="@+id/qbItalic"
+                    style="@style/EditorQuickBtn"
+                    android:text="I"
+                    android:textStyle="italic" />
+
+                <TextView
+                    android:id="@+id/qbQuote"
+                    style="@style/EditorQuickBtn"
+                    android:text="&gt;" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/qbImage"
+                    style="@style/EditorQuickBtn"
+                    android:text="&#128444;" />
+
+                <TextView
+                    android:id="@+id/qbOl"
+                    style="@style/EditorQuickBtn"
+                    android:text="1." />
+
+                <TextView
+                    android:id="@+id/qbUl"
+                    style="@style/EditorQuickBtn"
+                    android:text="*." />
+
+                <TextView
+                    android:id="@+id/qbLink"
+                    style="@style/EditorQuickBtn"
+                    android:text="&#127760;" />
+
+                <TextView
+                    android:id="@+id/qbCode"
+                    style="@style/EditorQuickBtn"
+                    android:text="&lt;/&gt;" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/qbTask"
+                    style="@style/EditorQuickBtn"
+                    android:text="-[ ]" />
+
+                <TextView
+                    android:id="@+id/qbInlineCode"
+                    style="@style/EditorQuickBtn"
+                    android:text="`" />
+
+                <TextView
+                    android:id="@+id/qbStrike"
+                    style="@style/EditorQuickBtn"
+                    android:text="~~" />
+
+                <TextView
+                    android:id="@+id/qbMath"
+                    style="@style/EditorQuickBtn"
+                    android:text="$" />
+
+                <TextView
+                    android:id="@+id/qbTable"
+                    style="@style/EditorQuickBtn"
+                    android:text="+" />
+            </LinearLayout>
         </LinearLayout>
 
-        <!-- Row 2 -->
+        <!-- ============ 编辑器设置 ============ -->
         <LinearLayout
+            android:id="@+id/panelEditor"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="16dp"
+            android:visibility="gone">
 
             <TextView
-                android:id="@+id/qbImage"
-                style="@style/EditorQuickBtn"
-                android:text="&#128444;" />
+                android:id="@+id/tvTitleFontSize"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="标题字体内容:18"
+                android:textColor="#FFFFFFFF"
+                android:textSize="15sp" />
+
+            <SeekBar
+                android:id="@+id/seekTitleFontSize"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:progressTint="#FFFFC107"
+                android:thumbTint="#FFFFC107" />
 
             <TextView
-                android:id="@+id/qbOl"
-                style="@style/EditorQuickBtn"
-                android:text="1." />
+                android:id="@+id/tvBodyFontSize"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="文章字体内容:14"
+                android:textColor="#FFFFFFFF"
+                android:textSize="15sp" />
+
+            <SeekBar
+                android:id="@+id/seekBodyFontSize"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:progressTint="#FFFFC107"
+                android:thumbTint="#FFFFC107" />
 
             <TextView
-                android:id="@+id/qbUl"
-                style="@style/EditorQuickBtn"
-                android:text="*." />
+                android:id="@+id/tvTextSpacing"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="文本间距:5"
+                android:textColor="#FFFFFFFF"
+                android:textSize="15sp" />
+
+            <SeekBar
+                android:id="@+id/seekTextSpacing"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:progressTint="#FFFFC107"
+                android:thumbTint="#FFFFC107" />
 
             <TextView
-                android:id="@+id/qbLink"
-                style="@style/EditorQuickBtn"
-                android:text="&#127760;" />
+                android:id="@+id/tvLineSpacing"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="文本行距:12"
+                android:textColor="#FFFFFFFF"
+                android:textSize="15sp" />
 
-            <TextView
-                android:id="@+id/qbCode"
-                style="@style/EditorQuickBtn"
-                android:text="&lt;/&gt;" />
+            <SeekBar
+                android:id="@+id/seekLineSpacing"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:progressTint="#FFFFC107"
+                android:thumbTint="#FFFFC107" />
+
+            <CheckBox
+                android:id="@+id/cbSyncScroll"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:buttonTint="#FFFFFFFF"
+                android:text="同步滑动"
+                android:textColor="#FFFFFFFF"
+                android:textSize="15sp" />
+
+            <CheckBox
+                android:id="@+id/cbWysiwyg"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:buttonTint="#FFFFFFFF"
+                android:text="所见即所得模式"
+                android:textColor="#FFFFFFFF"
+                android:textSize="15sp" />
+
+            <CheckBox
+                android:id="@+id/cbWritingMode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:buttonTint="#FFFFFFFF"
+                android:text="写作模式"
+                android:textColor="#FFFFFFFF"
+                android:textSize="15sp" />
+
+            <CheckBox
+                android:id="@+id/cbFocusMode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:buttonTint="#FFFFFFFF"
+                android:text="专注模式"
+                android:textColor="#FFFFFFFF"
+                android:textSize="15sp" />
         </LinearLayout>
 
-        <!-- Row 3 -->
+        <!-- ============ 文本格式 ============ -->
         <LinearLayout
+            android:id="@+id/panelFormat"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:paddingBottom="12dp"
+            android:visibility="gone">
 
             <TextView
-                android:id="@+id/qbTask"
-                style="@style/EditorQuickBtn"
-                android:text="-[ ]" />
+                android:id="@+id/fmtAddBlankLine"
+                style="@style/EditorFormatRow"
+                android:text="增加段落后一行空格" />
 
             <TextView
-                android:id="@+id/qbInlineCode"
-                style="@style/EditorQuickBtn"
-                android:text="`" />
+                android:id="@+id/fmtRemoveBlankLine"
+                style="@style/EditorFormatRow"
+                android:text="移除段落后一行空格" />
 
             <TextView
-                android:id="@+id/qbStrike"
-                style="@style/EditorQuickBtn"
-                android:text="~~" />
+                android:id="@+id/fmtIndentFirstLine"
+                style="@style/EditorFormatRow"
+                android:text="段落首行加入空格" />
 
             <TextView
-                android:id="@+id/qbMath"
-                style="@style/EditorQuickBtn"
-                android:text="$" />
+                android:id="@+id/fmtRemoveIndent"
+                style="@style/EditorFormatRow"
+                android:text="移除段落首行空格" />
 
             <TextView
-                android:id="@+id/qbTable"
-                style="@style/EditorQuickBtn"
-                android:text="+" />
+                android:id="@+id/fmtCjkSpace"
+                style="@style/EditorFormatRow"
+                android:text="中英文之间加入空格" />
+
+            <TextView
+                android:id="@+id/fmtCjkNumSpace"
+                style="@style/EditorFormatRow"
+                android:text="中文数字之间加入空格" />
         </LinearLayout>
-    </LinearLayout>
-
-    <!-- ============ 编辑器设置 ============ -->
-    <LinearLayout
-        android:id="@+id/panelEditor"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingHorizontal="16dp"
-        android:paddingBottom="16dp"
-        android:visibility="gone">
-
-        <TextView
-            android:id="@+id/tvLineSpacing"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="文本行距:12"
-            android:textColor="#FFFFFFFF"
-            android:textSize="15sp" />
-
-        <SeekBar
-            android:id="@+id/seekLineSpacing"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            android:progressTint="#FFFFC107"
-            android:thumbTint="#FFFFC107" />
-
-        <CheckBox
-            android:id="@+id/cbSyncScroll"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:buttonTint="#FFFFFFFF"
-            android:text="同步滑动"
-            android:textColor="#FFFFFFFF"
-            android:textSize="15sp" />
-
-        <CheckBox
-            android:id="@+id/cbWysiwyg"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:buttonTint="#FFFFFFFF"
-            android:text="所见即所得模式"
-            android:textColor="#FFFFFFFF"
-            android:textSize="15sp" />
-
-        <CheckBox
-            android:id="@+id/cbWritingMode"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:buttonTint="#FFFFFFFF"
-            android:text="写作模式"
-            android:textColor="#FFFFFFFF"
-            android:textSize="15sp" />
-
-        <CheckBox
-            android:id="@+id/cbFocusMode"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:buttonTint="#FFFFFFFF"
-            android:text="专注模式"
-            android:textColor="#FFFFFFFF"
-            android:textSize="15sp" />
-    </LinearLayout>
-
-    <!-- ============ 文本格式 ============ -->
-    <LinearLayout
-        android:id="@+id/panelFormat"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingBottom="12dp"
-        android:visibility="gone">
-
-        <TextView
-            android:id="@+id/fmtAddBlankLine"
-            style="@style/EditorFormatRow"
-            android:text="增加段落后一行空格" />
-
-        <TextView
-            android:id="@+id/fmtRemoveBlankLine"
-            style="@style/EditorFormatRow"
-            android:text="移除段落后一行空格" />
-
-        <TextView
-            android:id="@+id/fmtIndentFirstLine"
-            style="@style/EditorFormatRow"
-            android:text="段落首行加入空格" />
-
-        <TextView
-            android:id="@+id/fmtRemoveIndent"
-            style="@style/EditorFormatRow"
-            android:text="移除段落首行空格" />
-
-        <TextView
-            android:id="@+id/fmtCjkSpace"
-            style="@style/EditorFormatRow"
-            android:text="中英文之间加入空格" />
-
-        <TextView
-            android:id="@+id/fmtCjkNumSpace"
-            style="@style/EditorFormatRow"
-            android:text="中文数字之间加入空格" />
-    </LinearLayout>
+    </com.miaodi.note.ui.widget.SwipeFrameLayout>
 </LinearLayout>
