@@ -38,11 +38,6 @@ class EditOptionsBottomSheet : BottomSheetDialogFragment() {
         binding.btnMoveToBook.setOnClickListener { onOptionSelected?.invoke("move_to_book"); dismiss() }
         binding.btnMoveToChapter.setOnClickListener { onOptionSelected?.invoke("move_to_chapter"); dismiss() }
 
-        // Share
-        binding.btnShareQuote.setOnClickListener { onOptionSelected?.invoke("share_quote"); dismiss() }
-        binding.btnShareLink.setOnClickListener { onOptionSelected?.invoke("share_link"); dismiss() }
-        binding.btnCollaborate.setOnClickListener { onOptionSelected?.invoke("collaborate"); dismiss() }
-
         // Export
         binding.btnExportMd.setOnClickListener { onOptionSelected?.invoke("export_md"); dismiss() }
         binding.btnExportTxt.setOnClickListener { onOptionSelected?.invoke("export_txt"); dismiss() }

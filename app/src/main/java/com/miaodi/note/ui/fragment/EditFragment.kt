@@ -747,6 +747,7 @@ class EditFragment : Fragment() {
                     Toast.makeText(requireContext(), "已复制到剪贴板", Toast.LENGTH_SHORT).show()
                 }
                 "preview" -> showMarkdownPreview()
+                "editor_settings" -> showEditorSettingsSheet()
                 "switch_status" -> {
                     // 在“滑动状态”与“锁定状态”之间切换，并弹出当前状态提示
                     currentMode = if (currentMode == EditorMode.LOCKED_EDIT) {
@@ -770,6 +771,54 @@ class EditFragment : Fragment() {
             }
         }
         sheet.show(parentFragmentManager, "EditOptionsSheet")
+    }
+
+    /** 弹出“编辑器设置”面板：快捷栏 / 编辑器设置 / 文本格式 三个标签页 */
+    private fun showEditorSettingsSheet() {
+        val sheet = EditorSettingsBottomSheet.newInstance()
+        sheet.onInsertText = { text -> insertAtCursor(binding.etContent, text) }
+        sheet.onTextTransform = { action -> applyTextTransform(action) }
+        sheet.onLineSpacingChanged = { spacing -> applyLineSpacing(spacing) }
+        sheet.onSettingChanged = { key, checked ->
+            when (key) {
+                "focus_mode" -> {
+                    // 专注模式：编辑时隐藏顶部工具栏，减少干扰
+                    binding.toolbar.visibility = if (checked) View.GONE else View.VISIBLE
+                }
+            }
+        }
+        sheet.show(parentFragmentManager, "EditorSettingsSheet")
+    }
+
+    /** 应用文本行距（单位：sp 的倍数近似） */
+    private fun applyLineSpacing(spacing: Int) {
+        val dp = spacing.toFloat()
+        binding.etContent.setLineSpacing(0f, 1f + dp / 20f)
+    }
+
+    /** 对正文执行常见的文本格式整理 */
+    private fun applyTextTransform(action: String) {
+        val original = binding.etContent.text.toString()
+        val result = when (action) {
+            "add_blank_line" -> original.replace(Regex("(?m)(^[^\\n]*\\S)$"), "$1\n")
+            "remove_blank_line" -> original.replace(Regex("(?m)^\\s*$\\n?"), "").let {
+                // 将连续多个换行压缩为单个换行
+                it.replace(Regex("\\n{2,}"), "\n")
+            }
+            "indent_first_line" -> original.lines().joinToString("\n") { line ->
+                if (line.isNotBlank() && !line.startsWith(" ")) "　　$line" else line
+            }
+            "remove_indent" -> original.lines().joinToString("\n") { it.replace(Regex("^[　\\s]+"), "") }
+            "cjk_space" -> original.replace(Regex("([\\u4e00-\\u9fa5])([A-Za-z0-9])"), "$1 $2")
+                .replace(Regex("([A-Za-z0-9])([\\u4e00-\\u9fa5])"), "$1 $2")
+            "cjk_num_space" -> original.replace(Regex("([\\u4e00-\\u9fa5])(\\d)"), "$1 $2")
+                .replace(Regex("(\\d)([\\u4e00-\\u9fa5])"), "$1 $2")
+            else -> original
+        }
+        if (result != original) {
+            binding.etContent.setText(result)
+            binding.etContent.setSelection(result.length)
+        }
     }
 
     private fun exportDocument(extension: String, mimeType: String) {
