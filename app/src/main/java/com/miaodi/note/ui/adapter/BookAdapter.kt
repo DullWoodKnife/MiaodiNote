@@ -49,23 +49,17 @@ class BookAdapter(
             binding.tvName.text = book.name
             val ctx = binding.root.context
             val card = binding.root as CardView
-            // 书本图标颜色随选中状态切换：选中为琥珀色，未选中为白色
-            val iconColor = if (selected) {
-                android.graphics.Color.parseColor("#FFC107")
-            } else {
-                ctx.getColor(android.R.color.white)
-            }
+            // 所有书本卡片配色统一（不再区分选中/未选中背景）
+            card.setCardBackgroundColor(ctx.getColor(R.color.primary))
+            card.cardElevation = if (selected) 6f else 2f
+            // 所有书本图标保持一致（白色），仅右下角可选中按钮变色
             binding.ivBookIcon.imageTintList =
-                android.content.res.ColorStateList.valueOf(iconColor)
-            if (selected) {
-                card.setCardBackgroundColor(ctx.getColor(R.color.primary))
-                binding.tvName.setTextColor(ctx.getColor(android.R.color.white))
-                card.cardElevation = 6f
-            } else {
-                card.setCardBackgroundColor(ctx.getColor(R.color.primary_light))
-                binding.tvName.setTextColor(ctx.getColor(android.R.color.white))
-                card.cardElevation = 2f
-            }
+                android.content.res.ColorStateList.valueOf(ctx.getColor(android.R.color.white))
+            binding.tvName.setTextColor(ctx.getColor(android.R.color.white))
+            // 右下角可选中按钮：选中为琥珀色勾选，未选中为白色圆环
+            binding.ivSelectIndicator.setImageResource(
+                if (selected) R.drawable.ic_select_on else R.drawable.ic_select_off
+            )
         }
     }
 

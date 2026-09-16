@@ -124,6 +124,24 @@ class BookChapterBottomSheet : DialogFragment() {
                 }
             }
         }
+
+        // 选中书本变化时立即刷新书本列表的选中状态（列表内容不变时 ListAdapter 不会重新绑定）
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.currentBookId.collect {
+                    bookAdapter.notifyDataSetChanged()
+                }
+            }
+        }
+
+        // 选中章节变化时立即刷新章节列表的选中状态
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.currentChapterId.collect {
+                    chapterAdapter.notifyDataSetChanged()
+                }
+            }
+        }
     }
 
     private fun showAddItemDialog() {
