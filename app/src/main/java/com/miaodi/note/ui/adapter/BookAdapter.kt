@@ -47,14 +47,23 @@ class BookAdapter(
         fun bind(book: Book) {
             val selected = book.id == getSelectedId()
             binding.tvName.text = book.name
+            val ctx = binding.root.context
             val card = binding.root as CardView
+            // 书本图标颜色随选中状态切换：选中为琥珀色，未选中为白色
+            val iconColor = if (selected) {
+                android.graphics.Color.parseColor("#FFC107")
+            } else {
+                ctx.getColor(android.R.color.white)
+            }
+            binding.ivBookIcon.imageTintList =
+                android.content.res.ColorStateList.valueOf(iconColor)
             if (selected) {
-                card.setCardBackgroundColor(binding.root.context.getColor(R.color.primary))
-                binding.tvName.setTextColor(binding.root.context.getColor(android.R.color.white))
+                card.setCardBackgroundColor(ctx.getColor(R.color.primary))
+                binding.tvName.setTextColor(ctx.getColor(android.R.color.white))
                 card.cardElevation = 6f
             } else {
-                card.setCardBackgroundColor(binding.root.context.getColor(R.color.primary_light))
-                binding.tvName.setTextColor(binding.root.context.getColor(android.R.color.white))
+                card.setCardBackgroundColor(ctx.getColor(R.color.primary_light))
+                binding.tvName.setTextColor(ctx.getColor(android.R.color.white))
                 card.cardElevation = 2f
             }
         }

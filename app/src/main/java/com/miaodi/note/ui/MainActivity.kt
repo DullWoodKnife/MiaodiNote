@@ -314,11 +314,14 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.chapters.collect { chapters ->
-                    val chapterId = viewModel.currentChapterId.value
-                    val chapter = chapters.find { it.id == chapterId }
-                    binding.tvChapterTitle.text = chapter?.name ?: "默认"
-                }
+                kotlinx.coroutines.flow.combine(
+                    viewModel.chapters,
+                    viewModel.currentChapterId
+                ) { chapters, chapterId -> chapters to chapterId }
+                    .collect { (chapters, chapterId) ->
+                        val chapter = chapters.find { it.id == chapterId }
+                        binding.tvChapterTitle.text = chapter?.name ?: "默认"
+                    }
             }
         }
     }
