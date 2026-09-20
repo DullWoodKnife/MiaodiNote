@@ -78,17 +78,27 @@
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <EditText
-            android:id="@+id/etContent"
+        <!-- 正文外层使用滚动容器：滚动与“编辑/聚焦”解耦，
+             浏览态（非编辑）下可自由上下滑动且不会自动弹出键盘。 -->
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/contentScroll"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:hint="点击输入记录"
-            android:textSize="16sp"
-            android:padding="16dp"
-            android:gravity="top"
-            android:background="@android:color/transparent"
-            android:inputType="textMultiLine|textCapSentences"
-            android:scrollbars="vertical" />
+            android:fillViewport="true"
+            android:scrollbars="vertical"
+            android:overScrollMode="ifContentScrolls">
+
+            <EditText
+                android:id="@+id/etContent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="点击输入记录"
+                android:textSize="16sp"
+                android:padding="16dp"
+                android:gravity="top"
+                android:background="@android:color/transparent"
+                android:inputType="textMultiLine|textCapSentences" />
+        </androidx.core.widget.NestedScrollView>
 
         <!-- Markdown 渲染模式全屏预览容器 -->
         <FrameLayout

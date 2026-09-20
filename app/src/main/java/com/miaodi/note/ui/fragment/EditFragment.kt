@@ -163,20 +163,24 @@ class EditFragment : Fragment() {
     private fun applyMode() {
         when (currentMode) {
             EditorMode.LOCKED_EDIT -> {
+                binding.contentScroll.visibility = View.VISIBLE
                 binding.etContent.isEnabled = true
-                binding.etContent.visibility = View.VISIBLE
                 binding.etContent.isFocusable = true
                 binding.etContent.setTextIsSelectable(true)
                 binding.etContent.isFocusableInTouchMode = true
+                binding.etContent.isCursorVisible = true
                 clearFullPreview()
             }
             EditorMode.SLIDE -> {
+                binding.contentScroll.visibility = View.VISIBLE
                 binding.etContent.isEnabled = true
-                binding.etContent.visibility = View.VISIBLE
-                // 未点击内容前不进入编辑态：禁用触摸聚焦并清除焦点，避免自动弹出键盘
+                // 未点击内容前不进入编辑态：禁用触摸聚焦并清除焦点，避免自动弹出键盘。
+                // 竖向滚动由外层 contentScroll（NestedScrollView）负责，与聚焦/编辑状态解耦，
+                // 因此浏览态下可自由上下滑动而不会弹出键盘。
                 binding.etContent.isFocusableInTouchMode = false
                 binding.etContent.isFocusable = false
                 binding.etContent.setTextIsSelectable(false)
+                binding.etContent.isCursorVisible = false
                 binding.etContent.clearFocus()
                 hideKeyboard()
                 clearFullPreview()
@@ -184,7 +188,8 @@ class EditFragment : Fragment() {
             EditorMode.MD_READONLY -> {
                 binding.etContent.isEnabled = false
                 binding.etContent.isFocusableInTouchMode = false
-                binding.etContent.visibility = View.GONE
+                binding.etContent.isCursorVisible = false
+                binding.contentScroll.visibility = View.GONE
                 refreshFullPreview()
             }
         }
@@ -203,17 +208,49 @@ class EditFragment : Fragment() {
      * - 渲染态（MD 预览）：右滑 → 返回 MD 源码（滑动状态）。
      * 不再触发相邻文章切换，避免误产生“文章副本”。
      */
-    private val swipeTouchListener = View.OnTouchListener { _, event ->
+    /** 点击正文时按下的坐标与来源视图，用于把光标定位到点击处 */
+    private var tapDownX = 0f
+    private var tapDownY = 0f
+    private var tapFromScroll = false
+
+    /** 手势识别：单击正文 → 进入编辑态（浏览态下才响应） */
+    private val tapGestureDetector by lazy {
+        android.view.GestureDetector(
+            requireContext(),
+            object : android.view.GestureDetector.SimpleOnGestureListener() {
+                override fun onDown(e: MotionEvent): Boolean = true
+                override fun onSingleTapUp(e: MotionEvent): Boolean {
+                    if (currentMode == EditorMode.SLIDE) {
+                        enableContentEditing()
+                        return true
+                    }
+                    return false
+                }
+            }
+        )
+    }
+
+    /**
+     * 内容区统一手势监听：
+     * - 竖向滑动：不消费事件，交由外层 contentScroll 滚动（浏览态不会弹出键盘）。
+     * - 横向左滑：浏览态 → 进入 Markdown 渲染预览；右滑：预览态 → 返回源码。
+     * - 单击：浏览态下进入编辑态并弹出键盘，光标定位到点击处。
+     * 编辑态（LOCKED_EDIT）下不拦截，交回 EditText 正常处理点击与滚动。
+     */
+    private val swipeTouchListener = View.OnTouchListener { v, event ->
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+            swipeDownX = event.x
+            swipeDownY = event.y
+            tapDownX = event.x
+            tapDownY = event.y
+            tapFromScroll = (v == binding.contentScroll)
+            isGestureConsuming = false
+        }
+        tapGestureDetector.onTouchEvent(event)
         when (currentMode) {
             EditorMode.LOCKED_EDIT -> false
             EditorMode.SLIDE -> {
                 when (event.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> {
-                        swipeDownX = event.x
-                        swipeDownY = event.y
-                        isGestureConsuming = false
-                        false
-                    }
                     MotionEvent.ACTION_MOVE -> {
                         val dx = event.x - swipeDownX
                         val dy = event.y - swipeDownY
@@ -227,30 +264,11 @@ class EditFragment : Fragment() {
                             false
                         }
                     }
-                    MotionEvent.ACTION_UP -> {
-                        val wasConsuming = isGestureConsuming
-                        isGestureConsuming = false
-                        // 未发生滑动时为“点击”：滑动状态且 MD 源码模式下点击源码界面才进入编辑态（弹出键盘）
-                        if (!wasConsuming) {
-                            val dx = event.x - swipeDownX
-                            val dy = event.y - swipeDownY
-                            if (kotlin.math.abs(dx) < 20 && kotlin.math.abs(dy) < 20) {
-                                enableContentEditing()
-                            }
-                        }
-                        false
-                    }
                     else -> false
                 }
             }
             EditorMode.MD_READONLY -> {
                 when (event.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> {
-                        swipeDownX = event.x
-                        swipeDownY = event.y
-                        isGestureConsuming = false
-                        false
-                    }
                     MotionEvent.ACTION_MOVE -> {
                         val dx = event.x - swipeDownX
                         val dy = event.y - swipeDownY
@@ -264,10 +282,6 @@ class EditFragment : Fragment() {
                             false
                         }
                     }
-                    MotionEvent.ACTION_UP -> {
-                        isGestureConsuming = false
-                        false
-                    }
                     else -> false
                 }
             }
@@ -275,22 +289,31 @@ class EditFragment : Fragment() {
     }
 
     private fun setupSwipeGesture() {
-        binding.etContent.setOnTouchListener(swipeTouchListener)
+        // 浏览态下滚动由 contentScroll（NestedScrollView）负责；
+        // 单击进入编辑态、横向滑动切换预览由统一手势监听处理。
+        binding.contentScroll.setOnTouchListener(swipeTouchListener)
         binding.contentContainer.setOnTouchListener(swipeTouchListener)
-        // 滑动状态下点击正文后才进入编辑态（不点击不自动进入编辑）
-        binding.etContent.setOnClickListener {
-            if (currentMode == EditorMode.SLIDE) {
-                enableContentEditing()
-            }
-        }
+        binding.etContent.setOnTouchListener(swipeTouchListener)
     }
 
-    /** 滑动状态下点击正文后进入编辑态：恢复触摸聚焦并弹出软键盘 */
+    /** 滑动状态下点击正文后进入编辑态：恢复触摸聚焦、定位光标并弹出软键盘 */
     private fun enableContentEditing() {
+        if (currentMode != EditorMode.SLIDE) return
         binding.etContent.isFocusable = true
         binding.etContent.isFocusableInTouchMode = true
         binding.etContent.setTextIsSelectable(true)
+        binding.etContent.isCursorVisible = true
         binding.etContent.requestFocus()
+        // 将光标定位到点击处（浏览态下事件来自 contentScroll，需要加上其滚动偏移量）
+        try {
+            val x = tapDownX
+            val y = if (tapFromScroll) tapDownY + binding.contentScroll.scrollY else tapDownY
+            val offset = binding.etContent.getOffsetForPosition(x, y)
+            if (offset in 0..binding.etContent.text.length) {
+                binding.etContent.setSelection(offset)
+            }
+        } catch (_: Exception) {
+        }
         val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.showSoftInput(binding.etContent, InputMethodManager.SHOW_IMPLICIT)
     }
