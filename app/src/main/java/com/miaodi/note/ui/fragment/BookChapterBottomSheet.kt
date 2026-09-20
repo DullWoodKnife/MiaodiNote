@@ -413,7 +413,7 @@ class BookChapterBottomSheet : DialogFragment() {
 
     private fun exportToDefaultFolder(book: Book) {
         viewLifecycleOwner.lifecycleScope.launch {
-            val articles = viewModel.repository.getArticlesByBookOnce(book.id)
+            val articles = viewModel.getArticlesByBookOnce(book.id)
             if (articles.isEmpty()) {
                 Toast.makeText(requireContext(), "该书本下没有文章可导出", Toast.LENGTH_SHORT).show()
                 return@launch
@@ -452,7 +452,7 @@ class BookChapterBottomSheet : DialogFragment() {
 
     private fun exportToCustomFolder(book: Book, treeUri: Uri) {
         viewLifecycleOwner.lifecycleScope.launch {
-            val articles = viewModel.repository.getArticlesByBookOnce(book.id)
+            val articles = viewModel.getArticlesByBookOnce(book.id)
             if (articles.isEmpty()) {
                 Toast.makeText(requireContext(), "该书本下没有文章可导出", Toast.LENGTH_SHORT).show()
                 return@launch

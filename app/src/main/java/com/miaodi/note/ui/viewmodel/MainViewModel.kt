@@ -205,6 +205,11 @@ class MainViewModel(private val repository: NoteRepository) : ViewModel() {
         return books.value.firstOrNull()?.id ?: -1
     }
 
+    /** 获取指定书本下的全部文章（用于导出功能） */
+    suspend fun getArticlesByBookOnce(bookId: Long): List<Article> {
+        return repository.getArticlesByBookOnce(bookId)
+    }
+
     enum class SortType {
         UPDATE_TIME_DESC, TITLE_ASC, TITLE_DESC, MANUAL
     }
