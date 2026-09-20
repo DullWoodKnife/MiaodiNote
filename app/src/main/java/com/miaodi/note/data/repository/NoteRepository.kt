@@ -44,6 +44,7 @@ class NoteRepository(
     fun getArticlesByChapterOrderManual(chapterId: Long): Flow<List<Article>> = articleDao.getArticlesByChapterOrderManual(chapterId)
     fun searchArticles(chapterId: Long, query: String): Flow<List<Article>> = articleDao.searchArticles(chapterId, query)
     suspend fun getArticlesByChapterOnce(chapterId: Long): List<Article> = articleDao.getArticlesByChapterOnce(chapterId)
+    suspend fun getArticlesByBookOnce(bookId: Long): List<Article> = articleDao.getArticlesByBookOnce(bookId)
     suspend fun insertArticle(article: Article): Long = articleDao.insert(article)
     suspend fun updateArticle(article: Article) = articleDao.update(article)
     suspend fun deleteArticle(article: Article) = articleDao.delete(article)

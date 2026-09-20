@@ -24,6 +24,9 @@ interface ArticleDao {
     @Query("SELECT * FROM articles WHERE chapterId = :chapterId ORDER BY updatedAt DESC")
     suspend fun getArticlesByChapterOnce(chapterId: Long): List<Article>
 
+    @Query("SELECT a.* FROM articles a INNER JOIN chapters c ON a.chapterId = c.id WHERE c.bookId = :bookId ORDER BY a.updatedAt DESC")
+    suspend fun getArticlesByBookOnce(bookId: Long): List<Article>
+
     @Insert
     suspend fun insert(article: Article): Long
 

@@ -1,12 +1,19 @@
 package com.miaodi.note.ui.fragment
 
+import android.Manifest
 import android.app.Dialog
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
+import androidx.documentfile.provider.DocumentFile
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
@@ -230,9 +237,8 @@ class BookChapterBottomSheet : DialogFragment() {
         dialog.setContentView(dialogBinding.root)
 
         dialogBinding.btnExportBook.setOnClickListener {
-            // TODO: Implement book export
-            Toast.makeText(requireContext(), "导出功能开发中", Toast.LENGTH_SHORT).show()
             dialog.dismiss()
+            showExportMethodDialog(book)
         }
 
         dialogBinding.btnRenameOrDelete.setOnClickListener {
@@ -341,6 +347,155 @@ class BookChapterBottomSheet : DialogFragment() {
         }
 
         dialog.show()
+    }
+
+    // ========== Export book methods ==========
+
+    private var pendingExportBook: Book? = null
+
+    private val customExportLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val book = pendingExportBook ?: return@registerForActivityResult
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val uri = result.data?.data
+            if (uri != null) {
+                exportToCustomFolder(book, uri)
+            } else {
+                Toast.makeText(requireContext(), "未选择目录", Toast.LENGTH_SHORT).show()
+            }
+        }
+        pendingExportBook = null
+    }
+
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        val book = pendingExportBook ?: return@registerForActivityResult
+        if (isGranted) {
+            exportToDefaultFolder(book)
+        } else {
+            Toast.makeText(requireContext(), "需要存储权限以保存文件", Toast.LENGTH_SHORT).show()
+        }
+        pendingExportBook = null
+    }
+
+    private fun showExportMethodDialog(book: Book) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("提示")
+            .setMessage("请选择保存方式\nPs:Android10及以上版本请使用自定义保存")
+            .setPositiveButton("应用文件夹保存") { _, _ ->
+                exportBookToDefault(book)
+            }
+            .setNegativeButton("取消", null)
+            .setNeutralButton("自定义保存") { _, _ ->
+                exportBookToCustom(book)
+            }
+            .show()
+    }
+
+    private fun exportBookToDefault(book: Book) {
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+            // Android 9 and below need WRITE_EXTERNAL_STORAGE permission
+            when (PackageManager.PERMISSION_GRANTED) {
+                ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) -> {
+                    exportToDefaultFolder(book)
+                }
+                else -> {
+                    pendingExportBook = book
+                    requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                }
+            }
+        } else {
+            exportToDefaultFolder(book)
+        }
+    }
+
+    private fun exportToDefaultFolder(book: Book) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val articles = viewModel.repository.getArticlesByBookOnce(book.id)
+            if (articles.isEmpty()) {
+                Toast.makeText(requireContext(), "该书本下没有文章可导出", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            try {
+                val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                val targetDir = java.io.File(downloadDir, "zxm-note")
+                if (!targetDir.exists()) {
+                    targetDir.mkdirs()
+                }
+                var successCount = 0
+                for (article in articles) {
+                    val fileName = getExportFileName(article)
+                    val file = java.io.File(targetDir, fileName)
+                    file.writeText(article.content ?: "")
+                    successCount++
+                }
+                Toast.makeText(
+                    requireContext(),
+                    "已导出 $successCount 篇文章到 ${targetDir.absolutePath}",
+                    Toast.LENGTH_LONG
+                ).show()
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "导出失败: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun exportBookToCustom(book: Book) {
+        pendingExportBook = book
+        val intent = android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            // Optional: pre-select a starting directory (not always honored by all file managers)
+        }
+        customExportLauncher.launch(intent)
+    }
+
+    private fun exportToCustomFolder(book: Book, treeUri: Uri) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val articles = viewModel.repository.getArticlesByBookOnce(book.id)
+            if (articles.isEmpty()) {
+                Toast.makeText(requireContext(), "该书本下没有文章可导出", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            try {
+                val pickedDir = DocumentFile.fromTreeUri(requireContext(), treeUri)
+                    ?: throw IllegalStateException("无法访问选中的目录")
+                // Create a subfolder named after the book
+                val safeBookName = sanitizeFileName(book.name)
+                val bookDir = pickedDir.findFile(safeBookName)
+                    ?: pickedDir.createDirectory(safeBookName)
+                    ?: throw IllegalStateException("无法创建目录: $safeBookName")
+
+                var successCount = 0
+                for (article in articles) {
+                    val fileName = getExportFileName(article)
+                    // Remove existing file if any
+                    bookDir.findFile(fileName)?.delete()
+                    val newFile = bookDir.createFile("text/markdown", fileName)
+                        ?: continue
+                    requireContext().contentResolver.openOutputStream(newFile.uri)?.use { out ->
+                        out.write((article.content ?: "").toByteArray(Charsets.UTF_8))
+                        successCount++
+                    }
+                }
+                Toast.makeText(
+                    requireContext(),
+                    "已导出 $successCount 篇文章到 ${bookDir.name}",
+                    Toast.LENGTH_LONG
+                ).show()
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "导出失败: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun getExportFileName(article: com.miaodi.note.data.model.Article): String {
+        val baseName = if (article.title.isBlank()) "article_${article.id}" else sanitizeFileName(article.title)
+        return "$baseName.md"
+    }
+
+    private fun sanitizeFileName(name: String): String {
+        return name.replace(Regex("[\\\\/:*?\"<>|]"), "_")
     }
 
     override fun onDestroyView() {
