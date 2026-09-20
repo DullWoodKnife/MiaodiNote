@@ -179,6 +179,28 @@ class MainViewModel(private val repository: NoteRepository) : ViewModel() {
         }
     }
 
+    fun updateChapter(chapter: Chapter) {
+        viewModelScope.launch {
+            repository.updateChapter(chapter)
+        }
+    }
+
+    fun deleteChapter(chapter: Chapter) {
+        viewModelScope.launch {
+            repository.deleteChapter(chapter)
+            // If the deleted chapter was the selected one, re-select the first chapter of the current book
+            if (_currentChapterId.value == chapter.id) {
+                val bookId = _currentBookId.value
+                if (bookId > 0) {
+                    val chapterList = repository.getChaptersByBookOnce(bookId)
+                    _currentChapterId.value = if (chapterList.isNotEmpty()) chapterList.first().id else -1
+                } else {
+                    _currentChapterId.value = -1
+                }
+            }
+        }
+    }
+
     fun getDefaultBookId(): Long {
         return books.value.firstOrNull()?.id ?: -1
     }

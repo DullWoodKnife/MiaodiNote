@@ -23,6 +23,7 @@ import com.miaodi.note.databinding.DialogAddItemBinding
 import com.miaodi.note.databinding.DialogNewBookBinding
 import com.miaodi.note.databinding.DialogRenameBookBinding
 import com.miaodi.note.databinding.BottomSheetBookOpsBinding
+import com.miaodi.note.databinding.DialogRenameChapterBinding
 import com.miaodi.note.ui.adapter.BookAdapter
 import com.miaodi.note.ui.adapter.ChapterAdapter
 import com.miaodi.note.ui.viewmodel.MainViewModel
@@ -293,8 +294,53 @@ class BookChapterBottomSheet : DialogFragment() {
     }
 
     private fun showChapterOpsDialog(chapter: com.miaodi.note.data.model.Chapter) {
-        // TODO: Implement chapter operations (rename, delete)
-        Toast.makeText(requireContext(), "章节操作功能开发中", Toast.LENGTH_SHORT).show()
+        val dialogBinding = DialogRenameChapterBinding.inflate(layoutInflater)
+        val dialog = AlertDialog.Builder(requireContext())
+            .setView(dialogBinding.root)
+            .create()
+
+        dialogBinding.tvHint.text = "${chapter.name} 更改为"
+        dialogBinding.etChapterName.setText(chapter.name)
+        dialogBinding.etChapterName.setSelection(chapter.name.length)
+
+        dialogBinding.btnClose.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialogBinding.btnDeleteChapter.setOnClickListener {
+            // 删除章节（将同时删除其下所有文章，Room 外键 CASCADE）
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("删除确认")
+                .setMessage("确定要删除章节\"${chapter.name}\"吗？\n注意：删除章节将同时删除其中的所有文章，且无法恢复！")
+                .setPositiveButton("删除") { _, _ ->
+                    viewModel.deleteChapter(chapter)
+                    Toast.makeText(requireContext(), "已删除章节", Toast.LENGTH_SHORT).show()
+                    dialog.dismiss()
+                }
+                .setNegativeButton("取消", null)
+                .show()
+        }
+
+        dialogBinding.btnCancel.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialogBinding.btnSave.setOnClickListener {
+            val newName = dialogBinding.etChapterName.text.toString().trim()
+            if (newName.isBlank()) {
+                Toast.makeText(requireContext(), "章节名不能为空", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (newName != chapter.name) {
+                viewModel.updateChapter(
+                    chapter.copy(name = newName, updatedAt = System.currentTimeMillis())
+                )
+                Toast.makeText(requireContext(), "已修改章节名", Toast.LENGTH_SHORT).show()
+            }
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     override fun onDestroyView() {
