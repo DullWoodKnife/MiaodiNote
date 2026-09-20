@@ -1,6 +1,7 @@
 package com.miaodi.note.ui.viewmodel
 
 import androidx.lifecycle.*
+import com.miaodi.note.data.MarkdownGuide
 import com.miaodi.note.data.model.Article
 import com.miaodi.note.data.model.Book
 import com.miaodi.note.data.model.Chapter
@@ -77,6 +78,7 @@ class MainViewModel(private val repository: NoteRepository) : ViewModel() {
                     _currentChapterId.value = chapterList.first().id
                 }
             }
+            seedMarkdownGuideIfNeeded()
         }
     }
 
@@ -90,6 +92,26 @@ class MainViewModel(private val repository: NoteRepository) : ViewModel() {
 
     fun selectChapter(chapterId: Long) {
         _currentChapterId.value = chapterId
+    }
+
+    /**
+     * 确保默认章节中存在内置的 Markdown 教程文章（幂等，重复调用不会重复插入）。
+     */
+    private suspend fun seedMarkdownGuideIfNeeded() {
+        val chapterId = _currentChapterId.value
+        if (chapterId <= 0) return
+        val existing = repository.getArticlesByChapterOnce(chapterId)
+        if (existing.any { it.title == MarkdownGuide.TITLE }) return
+        repository.insertArticle(
+            Article(
+                chapterId = chapterId,
+                title = MarkdownGuide.TITLE,
+                content = MarkdownGuide.CONTENT,
+                isMarkdown = true,
+                wordCount = MarkdownGuide.CONTENT.length,
+                isNew = false
+            )
+        )
     }
 
     fun setSearchQuery(query: String) {
