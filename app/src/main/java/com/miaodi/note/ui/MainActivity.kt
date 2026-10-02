@@ -56,6 +56,7 @@ class MainActivity : AppCompatActivity() {
         setupBackPressed()
         applyManualNavSetting()
         handleQuickNoteIntent(intent)
+        handleExternalFileIntent(intent)
 
         // 恢复状态栏颜色为 primary 避免系统默认白色覆盖
         window.statusBarColor = getColor(R.color.primary_dark)
@@ -65,6 +66,7 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleQuickNoteIntent(intent)
+        handleExternalFileIntent(intent)
     }
 
     /**
@@ -89,6 +91,99 @@ class MainActivity : AppCompatActivity() {
             }
             startActivity(editIntent)
         }
+    }
+
+    /**
+     * 处理外部应用分享/打开 Markdown/文本文件到本应用：
+     * 读取文件内容，保存到默认书本的首个章节，并打开编辑页。
+     */
+    private fun handleExternalFileIntent(intent: Intent?) {
+        if (intent == null) return
+        val action = intent.action
+        val mimeType = intent.type
+        if (action != Intent.ACTION_VIEW && action != Intent.ACTION_SEND) return
+
+        var fileUri: android.net.Uri? = null
+        var fileName: String? = null
+        var fileContent: String? = null
+
+        when (action) {
+            Intent.ACTION_VIEW -> {
+                fileUri = intent.data
+            }
+            Intent.ACTION_SEND -> {
+                fileUri = intent.getParcelableExtra(Intent.EXTRA_STREAM)
+                fileName = intent.getStringExtra(Intent.EXTRA_SUBJECT)
+                fileContent = intent.getStringExtra(Intent.EXTRA_TEXT)
+            }
+        }
+
+        if (fileUri == null && fileContent == null) return
+
+        lifecycleScope.launch {
+            try {
+                // 读取文件内容
+                val content = if (fileContent != null) {
+                    fileContent
+                } else if (fileUri != null) {
+                    contentResolver.openInputStream(fileUri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                        ?: ""
+                } else {
+                    ""
+                }
+
+                // 提取文件名（不含扩展名）作为文章标题
+                val title = fileName ?: fileUri?.let { getFileNameFromUri(it) } ?: "外部导入文章"
+                val cleanTitle = title.removeSuffix(".md").removeSuffix(".txt").removeSuffix(".markdown")
+
+                // 等待默认书本和章节就绪
+                viewModel.books.first { it.isNotEmpty() }
+                viewModel.chapters.first { it.isNotEmpty() }
+
+                val defaultBook = viewModel.books.value.firstOrNull()
+                val defaultChapter = viewModel.chapters.value.firstOrNull()
+                if (defaultBook == null || defaultChapter == null) {
+                    Toast.makeText(this@MainActivity, "没有可用的书本或章节", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+
+                val repository = (application as MiaodiApplication).repository
+                val article = com.miaodi.note.data.model.Article(
+                    chapterId = defaultChapter.id,
+                    title = cleanTitle,
+                    content = content,
+                    isMarkdown = true,
+                    isNew = true
+                )
+                val articleId = repository.insertArticle(article)
+
+                Toast.makeText(this@MainActivity, "已导入 \"$cleanTitle\"", Toast.LENGTH_SHORT).show()
+
+                // 打开编辑页
+                val editIntent = Intent(this@MainActivity, EditActivity::class.java).apply {
+                    putExtra("articleId", articleId)
+                    putExtra("chapterId", defaultChapter.id)
+                }
+                startActivity(editIntent)
+            } catch (e: Exception) {
+                Toast.makeText(this@MainActivity, "导入失败: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun getFileNameFromUri(uri: android.net.Uri): String {
+        var name = "外部导入文章"
+        if (uri.scheme == "content") {
+            contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0) name = cursor.getString(idx) ?: name
+                }
+            }
+        } else {
+            name = uri.lastPathSegment ?: name
+        }
+        return name
     }
 
     private fun setupNavigation() {
