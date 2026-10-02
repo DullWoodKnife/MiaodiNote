@@ -54,8 +54,12 @@ class MainActivity : AppCompatActivity() {
         observeViewModel()
         setupBackPressed()
         applyManualNavSetting()
-        handleQuickNoteIntent(intent)
-        handleExternalFileIntent(intent)
+        // 仅在首次创建 Activity 时处理启动 Intent；
+        // 因配置变更（如屏幕旋转）重建时不再重复导入，避免重复插入文章。
+        if (savedInstanceState == null) {
+            handleQuickNoteIntent(intent)
+            handleExternalFileIntent(intent)
+        }
 
         // 恢复状态栏颜色为 primary 避免系统默认白色覆盖
         window.statusBarColor = getColor(R.color.primary_dark)
@@ -99,22 +103,35 @@ class MainActivity : AppCompatActivity() {
     private fun handleExternalFileIntent(intent: Intent?) {
         if (intent == null) return
         val action = intent.action
-        val mimeType = intent.type
-        if (action != Intent.ACTION_VIEW && action != Intent.ACTION_SEND) return
+        // 仅处理外部“打开/分享”进入本应用的情形；正常从桌面启动
+        // （SplashActivity 发来的显式 Intent，action 为 null/MAIN）时直接返回。
+        if (action != Intent.ACTION_VIEW &&
+            action != Intent.ACTION_SEND &&
+            action != Intent.ACTION_SEND_MULTIPLE
+        ) return
 
         var fileUri: android.net.Uri? = null
         var fileName: String? = null
         var fileContent: String? = null
 
-        when (action) {
-            Intent.ACTION_VIEW -> {
-                fileUri = intent.data
+        // 解析外部 Intent 必须容错：EXTRA_STREAM 可能不是 Uri、可能根本不存在，
+        // 旧式 getParcelableExtra 会抛 ClassCastException；而此处位于协程之外，
+        // 一旦抛出且未捕获就会直接崩溃整个进程 —— 这正是 eaa282d 引入的
+        // “通过外部打开/分享文件进入应用后崩溃”的根因。
+        try {
+            when (action) {
+                Intent.ACTION_VIEW -> {
+                    fileUri = intent.data
+                }
+                Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> {
+                    fileUri = extractStreamUri(intent)
+                    fileName = intent.getStringExtra(Intent.EXTRA_SUBJECT)
+                    fileContent = intent.getStringExtra(Intent.EXTRA_TEXT)
+                }
             }
-            Intent.ACTION_SEND -> {
-                fileUri = intent.getParcelableExtra(Intent.EXTRA_STREAM)
-                fileName = intent.getStringExtra(Intent.EXTRA_SUBJECT)
-                fileContent = intent.getStringExtra(Intent.EXTRA_TEXT)
-            }
+        } catch (t: Throwable) {
+            // 外部数据异常时静默返回，绝不让应用因此崩溃
+            return
         }
 
         if (fileUri == null && fileContent == null) return
@@ -173,6 +190,33 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this@MainActivity, "导入失败: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    /**
+     * 安全地从外部 Intent 中提取待处理文件的 Uri。
+     * 兼容 EXTRA_STREAM 为单个 Uri、Uri 列表（多选分享）以及 ClipData 的情形，
+     * 并在任何类型不匹配/读取异常时返回 null，避免外部数据异常导致进程崩溃。
+     */
+    private fun extractStreamUri(intent: Intent): android.net.Uri? {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                // Android 13+ 推荐的类型安全重载，永不抛 ClassCastException
+                intent.getParcelableExtra(Intent.EXTRA_STREAM, android.net.Uri::class.java)?.let { return it }
+            } else {
+                @Suppress("DEPRECATION")
+                when (val extra = intent.getParcelableExtra<android.os.Parcelable>(Intent.EXTRA_STREAM)) {
+                    is android.net.Uri -> return extra
+                    is ArrayList<*> -> return extra.filterIsInstance<android.net.Uri>().firstOrNull()
+                }
+            }
+            // 回退：部分应用（如“分享”多选）仅在 ClipData 中携带 Uri
+            intent.clipData?.let { clip ->
+                if (clip.itemCount > 0) return clip.getItemAt(0)?.uri
+            }
+        } catch (t: Throwable) {
+            // 忽略：外部数据异常不应导致应用崩溃
+        }
+        return null
     }
 
     private fun getFileNameFromUri(uri: android.net.Uri): String {
