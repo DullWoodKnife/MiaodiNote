@@ -43,7 +43,6 @@ class MainActivity : AppCompatActivity() {
 
         // 确保状态栏背景色与 Toolbar 一致，防止系统默认白色覆盖
         window.statusBarColor = getColor(R.color.primary_dark)
-        window.decorView.setOnApplyWindowInsetsListener { _, insets -> insets }
 
         val repository = (application as MiaodiApplication).repository
         viewModel = androidx.lifecycle.ViewModelProvider(this, com.miaodi.note.ui.viewmodel.MainViewModel.Factory(repository))[com.miaodi.note.ui.viewmodel.MainViewModel::class.java]
