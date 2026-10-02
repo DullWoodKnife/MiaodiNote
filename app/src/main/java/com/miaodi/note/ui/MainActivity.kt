@@ -122,6 +122,8 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
+                val repository = (application as MiaodiApplication).repository
+
                 // 读取文件内容
                 val content = if (fileContent != null) {
                     fileContent
@@ -136,18 +138,21 @@ class MainActivity : AppCompatActivity() {
                 val title = fileName ?: fileUri?.let { getFileNameFromUri(it) } ?: "外部导入文章"
                 val cleanTitle = title.removeSuffix(".md").removeSuffix(".txt").removeSuffix(".markdown")
 
-                // 等待默认书本和章节就绪
-                viewModel.books.first { it.isNotEmpty() }
-                viewModel.chapters.first { it.isNotEmpty() }
-
-                val defaultBook = viewModel.books.value.firstOrNull()
-                val defaultChapter = viewModel.chapters.value.firstOrNull()
-                if (defaultBook == null || defaultChapter == null) {
-                    Toast.makeText(this@MainActivity, "没有可用的书本或章节", Toast.LENGTH_SHORT).show()
+                // 等待默认书本就绪
+                val defaultBook = viewModel.books.first { it.isNotEmpty() }.firstOrNull()
+                if (defaultBook == null) {
+                    Toast.makeText(this@MainActivity, "没有可用的书本", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
 
-                val repository = (application as MiaodiApplication).repository
+                // 从数据库直接查询该书本的第一个章节（不依赖 UI 状态流）
+                val chapters = repository.getChaptersByBookOnce(defaultBook.id)
+                val defaultChapter = chapters.firstOrNull()
+                if (defaultChapter == null) {
+                    Toast.makeText(this@MainActivity, "该书本没有章节，请先创建章节", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+
                 val article = com.miaodi.note.data.model.Article(
                     chapterId = defaultChapter.id,
                     title = cleanTitle,
