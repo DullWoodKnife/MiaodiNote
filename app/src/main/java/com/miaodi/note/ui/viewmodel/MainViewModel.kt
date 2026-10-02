@@ -232,6 +232,40 @@ class MainViewModel(private val repository: NoteRepository) : ViewModel() {
         return repository.getArticlesByBookOnce(bookId)
     }
 
+    /** 按 id 读取文章（用于外部文档导入后跳转编辑页）。 */
+    suspend fun getArticleById(articleId: Long): Article? {
+        return repository.getArticleById(articleId)
+    }
+
+    /**
+     * 将外部 Markdown 文档内容导入并保存到默认书本的当前章节。
+     * 返回新建文章的 id；若无可用章节则返回 -1。
+     */
+    suspend fun importExternalMarkdown(title: String, content: String): Long {
+        // 优先使用当前章节；若不可用则回退到默认（第一个）书本的第一个章节
+        var chapterId = _currentChapterId.value
+        if (chapterId <= 0) {
+            val bookId = _currentBookId.value.takeIf { it > 0 }
+                ?: repository.getAllBooksOnce().firstOrNull()?.id
+                ?: -1L
+            if (bookId > 0) {
+                val chapterList = repository.getChaptersByBookOnce(bookId)
+                chapterId = chapterList.firstOrNull()?.id ?: -1L
+            }
+        }
+        if (chapterId <= 0) return -1L
+
+        val article = Article(
+            chapterId = chapterId,
+            title = title,
+            content = content,
+            isMarkdown = true,
+            wordCount = content.length,
+            isNew = true
+        )
+        return repository.insertArticle(article)
+    }
+
     enum class SortType {
         UPDATE_TIME_DESC, TITLE_ASC, TITLE_DESC, MANUAL
     }

@@ -55,7 +55,12 @@ class MainActivity : AppCompatActivity() {
         observeViewModel()
         setupBackPressed()
         applyManualNavSetting()
-        handleQuickNoteIntent(intent)
+        // 仅在首次创建时处理启动 Intent；配置变更（如旋转）重建时不再重复处理，
+        // 避免重复导入外部文档。
+        if (savedInstanceState == null) {
+            handleQuickNoteIntent(intent)
+            handleExternalFileIntent(intent)
+        }
 
         // 恢复状态栏颜色为 primary 避免系统默认白色覆盖
         window.statusBarColor = getColor(R.color.primary_dark)
@@ -65,6 +70,7 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleQuickNoteIntent(intent)
+        handleExternalFileIntent(intent)
     }
 
     /**
@@ -88,6 +94,161 @@ class MainActivity : AppCompatActivity() {
                 putExtra("quickText", quickText)
             }
             startActivity(editIntent)
+        }
+    }
+
+    // ==================== 外部 Markdown 文档导入 ====================
+    // 处理从系统「打开方式 / 分享」进入本应用的外部 Markdown 文档：
+    // 流式读取文件内容（支持大文件，读取在 IO 线程执行），导入并保存到默认书本。
+    // 所有外部数据解析与读取均做容错处理，任何异常都不会导致应用崩溃。
+
+    /** 导入外部文档时允许的最大字符数，防止极端大文件导致内存溢出（默认约 25MB 文本）。 */
+    private val maxImportChars = 25_000_000
+
+    private fun handleExternalFileIntent(intent: Intent?) {
+        if (intent == null) return
+        val action = intent.action
+        val isView = action == Intent.ACTION_VIEW
+        val isSend = action == Intent.ACTION_SEND || action == Intent.ACTION_SEND_MULTIPLE
+        if (!isView && !isSend) return
+
+        // 解析外部 Uri —— 必须容错，任何异常都不应导致崩溃
+        val uri: android.net.Uri? = try {
+            extractExternalUri(intent)
+        } catch (t: Throwable) {
+            null
+        }
+        if (uri == null) return
+
+        val displayName: String? = try {
+            queryDisplayName(uri)
+        } catch (t: Throwable) {
+            null
+        }
+        val mimeType: String? = try {
+            contentResolver.getType(uri)
+        } catch (t: Throwable) {
+            null
+        }
+
+        if (!isMarkdownLike(displayName, mimeType, uri)) {
+            Toast.makeText(this, "仅支持导入 Markdown（.md）文档", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        Toast.makeText(this, "正在导入文档…", Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch {
+            val articleId = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                importExternalMarkdown(uri, displayName)
+            }
+            if (articleId > 0) {
+                Toast.makeText(this@MainActivity, "已保存到默认书本", Toast.LENGTH_SHORT).show()
+                val article = viewModel.getArticleById(articleId)
+                val editIntent = Intent(this@MainActivity, EditActivity::class.java).apply {
+                    putExtra("articleId", articleId)
+                    putExtra("chapterId", article?.chapterId ?: viewModel.currentChapterId.value)
+                }
+                startActivity(editIntent)
+            } else {
+                Toast.makeText(this@MainActivity, "导入失败：无法读取该文档", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    /**
+     * 从外部 Intent 中安全提取待处理文件的 Uri。
+     * 兼容 EXTRA_STREAM 为单个 Uri、Uri 列表（多选分享）以及 ClipData 的情形，
+     * 并在任何类型不匹配/读取异常时返回 null，避免外部数据异常导致进程崩溃。
+     */
+    private fun extractExternalUri(intent: Intent): android.net.Uri? {
+        if (intent.action == Intent.ACTION_VIEW) {
+            intent.data?.let { return it }
+            intent.clipData?.let { clip -> if (clip.itemCount > 0) return clip.getItemAt(0)?.uri }
+            return null
+        }
+        // ACTION_SEND / ACTION_SEND_MULTIPLE
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(Intent.EXTRA_STREAM, android.net.Uri::class.java)?.let { return it }
+        } else {
+            @Suppress("DEPRECATION")
+            when (val extra = intent.getParcelableExtra<android.os.Parcelable>(Intent.EXTRA_STREAM)) {
+                is android.net.Uri -> return extra
+                is ArrayList<*> -> extra.filterIsInstance<android.net.Uri>().firstOrNull()?.let { return it }
+            }
+        }
+        // 回退：部分应用仅在 ClipData 中携带 Uri
+        intent.clipData?.let { clip -> if (clip.itemCount > 0) return clip.getItemAt(0)?.uri }
+        return null
+    }
+
+    /** 查询外部 Uri 的显示名（文件名）。 */
+    private fun queryDisplayName(uri: android.net.Uri): String? {
+        if (uri.scheme == "file") return uri.lastPathSegment
+        var name: String? = null
+        try {
+            contentResolver.query(
+                uri,
+                arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),
+                null, null, null
+            )?.use { cursor ->
+                val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (idx >= 0 && cursor.moveToFirst()) name = cursor.getString(idx)
+            }
+        } catch (t: Throwable) {
+            // 忽略：查询失败时回退到路径推断
+        }
+        if (name.isNullOrBlank()) name = uri.lastPathSegment?.substringAfterLast('/')
+        return name
+    }
+
+    /** 判断外部文档是否为 Markdown（按扩展名或 MIME 类型）。 */
+    private fun isMarkdownLike(name: String?, mime: String?, uri: android.net.Uri): Boolean {
+        val n = (name ?: uri.lastPathSegment ?: "").lowercase()
+        val isMdExt = n.endsWith(".md") || n.endsWith(".markdown") ||
+            n.endsWith(".mdown") || n.endsWith(".mkd")
+        val m = (mime ?: "").lowercase()
+        val isMdMime = m == "text/markdown" || m == "text/x-markdown" ||
+            m == "application/x-markdown" || m == "text/plain"
+        return isMdExt || isMdMime
+    }
+
+    /**
+     * 流式读取外部 Uri 的文本内容并写入默认书本，返回新建文章的 id（失败返回 -1）。
+     * 读取在 IO 线程执行，采用缓冲流逐块读取，避免一次性载入导致大文件 OOM。
+     */
+    private suspend fun importExternalMarkdown(uri: android.net.Uri, displayName: String?): Long {
+        val content = readTextFromUri(uri) ?: return -1L
+        if (content.isEmpty()) return -1L
+
+        val rawName = (displayName ?: uri.lastPathSegment ?: "").substringAfterLast('/')
+        var title = if (rawName.contains('.')) rawName.substringBeforeLast('.') else rawName
+        title = title.trim()
+        if (title.isBlank()) {
+            val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.getDefault())
+                .format(java.util.Date())
+            title = "外部文档-$stamp"
+        }
+        return viewModel.importExternalMarkdown(title, content)
+    }
+
+    /** 以缓冲流方式读取文本内容；超过上限时截断，任何异常返回 null。 */
+    private fun readTextFromUri(uri: android.net.Uri): String? {
+        return try {
+            contentResolver.openInputStream(uri)?.use { input ->
+                java.io.BufferedReader(java.io.InputStreamReader(input, Charsets.UTF_8)).use { reader ->
+                    val sb = StringBuilder()
+                    val buffer = CharArray(64 * 1024)
+                    while (true) {
+                        val read = reader.read(buffer)
+                        if (read < 0) break
+                        sb.append(buffer, 0, read)
+                        if (sb.length >= maxImportChars) break
+                    }
+                    sb.toString()
+                }
+            }
+        } catch (t: Throwable) {
+            null
         }
     }
 

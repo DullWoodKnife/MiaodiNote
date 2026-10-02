@@ -37,6 +37,11 @@ class SplashActivity : AppCompatActivity() {
                         mainIntent.putExtra(ClipboardMonitorService.EXTRA_QUICK_NOTE_TEXT, it)
                     }
                 }
+
+                // 透传外部「打开方式 / 分享」意图，使 MainActivity 能导入外部 Markdown 文档。
+                // 外部文档统一经由 SplashActivity（应用唯一对外入口，含 PIN 锁）转发，
+                // 避免从外部直接唤起 MainActivity 而绕过 PIN 锁。
+                forwardExternalIntent(original, mainIntent)
             }
 
             // PIN 解锁验证
@@ -49,6 +54,50 @@ class SplashActivity : AppCompatActivity() {
                 finish()
             }
         }, 2000)
+    }
+
+    /**
+     * 将外部「打开方式 / 分享」意图透传给 MainActivity。
+     *
+     * SplashActivity 是应用唯一的对外入口（承载 PIN 锁），因此外部文档打开统一在此转发，
+     * 以免直接唤起 MainActivity 而绕过 PIN 校验。所有外部数据解析均做容错处理，
+     * 任何异常都不会导致应用崩溃。
+     */
+    private fun forwardExternalIntent(original: Intent, target: Intent) {
+        try {
+            when (original.action) {
+                Intent.ACTION_VIEW -> {
+                    val data = original.data
+                    if (data == null) return
+                    target.action = Intent.ACTION_VIEW
+                    target.setDataAndType(data, original.type)
+                }
+                Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> {
+                    target.action = original.action
+                    target.type = original.type
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                        original.getParcelableExtra(Intent.EXTRA_STREAM, android.net.Uri::class.java)?.let {
+                            target.putExtra(Intent.EXTRA_STREAM, it)
+                        }
+                    } else {
+                        @Suppress("DEPRECATION")
+                        original.getParcelableExtra<android.os.Parcelable>(Intent.EXTRA_STREAM)?.let {
+                            target.putExtra(Intent.EXTRA_STREAM, it)
+                        }
+                    }
+                    original.getStringExtra(Intent.EXTRA_SUBJECT)?.let {
+                        target.putExtra(Intent.EXTRA_SUBJECT, it)
+                    }
+                }
+                else -> return
+            }
+            // 部分应用（如“分享”多选）仅在 ClipData 中携带 Uri，一并透传
+            original.clipData?.let { target.clipData = it }
+            // 保证 MainActivity 能读取 content:// 数据
+            target.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (t: Throwable) {
+            // 忽略：外部意图异常不应导致应用崩溃
+        }
     }
 
     private fun showPinDialog(mainIntent: Intent) {
