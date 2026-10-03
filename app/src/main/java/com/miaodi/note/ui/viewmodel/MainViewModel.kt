@@ -238,6 +238,41 @@ class MainViewModel(private val repository: NoteRepository) : ViewModel() {
     }
 
     /**
+     * 大文档导入时先插入一条空正文文章（正文随后落盘），返回新文章 id。
+     * 无可用章节时返回 -1。
+     */
+    suspend fun insertArticleShell(title: String): Long {
+        var chapterId = _currentChapterId.value
+        if (chapterId <= 0) {
+            val bookId = _currentBookId.value.takeIf { it > 0 }
+                ?: repository.getAllBooksOnce().firstOrNull()?.id
+                ?: -1L
+            if (bookId > 0) {
+                chapterId = repository.getChaptersByBookOnce(bookId).firstOrNull()?.id ?: -1L
+            }
+        }
+        if (chapterId <= 0) return -1L
+        val article = Article(
+            chapterId = chapterId,
+            title = title,
+            content = "",
+            isMarkdown = true,
+            isNew = true
+        )
+        return repository.insertArticle(article)
+    }
+
+    /** 回填大文档正文的落盘路径。 */
+    suspend fun setArticleContentPath(articleId: Long, path: String) {
+        repository.setContentExternalized(articleId, path)
+    }
+
+    /** 读取文章正文列内容（小文档内联正文；大文档返回空串）。 */
+    suspend fun getArticleContent(articleId: Long): String {
+        return repository.getContentOnly(articleId) ?: ""
+    }
+
+    /**
      * 将外部 Markdown 文档内容导入并保存到默认书本的当前章节。
      * 返回新建文章的 id；若无可用章节则返回 -1。
      */

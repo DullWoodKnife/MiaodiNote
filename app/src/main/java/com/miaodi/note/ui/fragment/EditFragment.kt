@@ -382,8 +382,9 @@ class EditFragment : Fragment() {
             val nextArticle = articles[newIndex]
             currentArticle = nextArticle
             binding.etTitle.setText(nextArticle.title)
-            binding.etContent.setText(nextArticle.content)
-            binding.tvWordCount.text = getString(R.string.word_count, nextArticle.content.length)
+            val nextFull = loadFullContent(nextArticle)
+            binding.etContent.setText(nextFull)
+            binding.tvWordCount.text = getString(R.string.word_count, nextFull.length)
             if (currentMode == EditorMode.MD_READONLY) {
                 refreshFullPreview()
             }
@@ -662,6 +663,19 @@ class EditFragment : Fragment() {
         isOperationInProgress = false
     }
 
+    /** 解析文章完整正文：大文档正文落盘，需从文件读取；否则使用 content 列。 */
+    private suspend fun loadFullContent(article: Article): String {
+        val path = article.contentPath
+        if (!path.isNullOrBlank()) {
+            val ctx = binding.root.context
+            val fromFile = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.miaodi.note.data.ArticleContentStore.read(ctx, path)
+            }
+            if (fromFile != null) return fromFile
+        }
+        return article.content
+    }
+
     private fun loadOrCreateArticle() {
         val articleId = arguments?.getLong("articleId", -1L) ?: -1L
         val chapterId = arguments?.getLong("chapterId", -1L) ?: -1L
@@ -672,8 +686,9 @@ class EditFragment : Fragment() {
                 currentArticle = repository.getArticleById(articleId)
                 currentArticle?.let { article ->
                     binding.etTitle.setText(article.title)
-                    binding.etContent.setText(article.content)
-                    binding.tvWordCount.text = getString(R.string.word_count, article.content.length)
+                    val fullContent = loadFullContent(article)
+                    binding.etContent.setText(fullContent)
+                    binding.tvWordCount.text = getString(R.string.word_count, fullContent.length)
                 }
                 maybeAutoPreview()
             }
@@ -715,9 +730,13 @@ class EditFragment : Fragment() {
             if (title.isBlank()) {
                 title = titleDateFormat.format(Date())
             }
+            // 大文档正文落盘：只要原文章已是文件存储，或正文超过阈值，
+            // 就保持 content 列为空并把正文写回文件，避免把超大文本写入数据库。
+            val externalize = article.contentPath != null ||
+                content.length > com.miaodi.note.data.ArticleContentStore.LARGE_CONTENT_THRESHOLD
             val newArticle = article.copy(
                 title = title,
-                content = content,
+                content = if (externalize) "" else content,
                 wordCount = content.length,
                 updatedAt = System.currentTimeMillis(),
                 isNew = false
@@ -730,13 +749,33 @@ class EditFragment : Fragment() {
             }
 
             lifecycleScope.launch {
+                val ctx = binding.root.context
                 if (newArticle.id == 0L) {
                     val newId = repository.insertArticle(newArticle)
-                    currentArticle = newArticle.copy(id = newId)
+                    if (externalize) {
+                        val path = com.miaodi.note.data.ArticleContentStore.relativePathFor(newId)
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            com.miaodi.note.data.ArticleContentStore.write(ctx, path, content)
+                        }
+                        repository.setContentExternalized(newId, path)
+                        currentArticle = newArticle.copy(id = newId, content = "", contentPath = path)
+                    } else {
+                        currentArticle = newArticle.copy(id = newId)
+                    }
                     isNewArticleInsertPending = false
                 } else {
-                    repository.updateArticle(newArticle)
-                    currentArticle = newArticle
+                    if (externalize) {
+                        val path = article.contentPath
+                            ?: com.miaodi.note.data.ArticleContentStore.relativePathFor(newArticle.id)
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            com.miaodi.note.data.ArticleContentStore.write(ctx, path, content)
+                        }
+                        repository.setContentExternalized(newArticle.id, path)
+                        currentArticle = newArticle.copy(content = "", contentPath = path)
+                    } else {
+                        repository.updateArticle(newArticle)
+                        currentArticle = newArticle
+                    }
                 }
             }
         }

@@ -428,7 +428,7 @@ class BookChapterBottomSheet : DialogFragment() {
                 for (article in articles) {
                     val fileName = getExportFileName(article)
                     val file = java.io.File(targetDir, fileName)
-                    file.writeText(article.content ?: "")
+                    file.writeText(resolveArticleContent(article))
                     successCount++
                 }
                 Toast.makeText(
@@ -474,7 +474,7 @@ class BookChapterBottomSheet : DialogFragment() {
                     val newFile = bookDir.createFile("text/markdown", fileName)
                         ?: continue
                     requireContext().contentResolver.openOutputStream(newFile.uri)?.use { out ->
-                        out.write((article.content ?: "").toByteArray(Charsets.UTF_8))
+                        out.write(resolveArticleContent(article).toByteArray(Charsets.UTF_8))
                         successCount++
                     }
                 }
@@ -487,6 +487,18 @@ class BookChapterBottomSheet : DialogFragment() {
                 Toast.makeText(requireContext(), "导出失败: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    /** 解析文章完整正文：大文档正文落盘，从文件读取；否则单列读取 content。 */
+    private suspend fun resolveArticleContent(article: com.miaodi.note.data.model.Article): String {
+        val path = article.contentPath
+        if (!path.isNullOrBlank()) {
+            val fromFile = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.miaodi.note.data.ArticleContentStore.read(requireContext(), path)
+            }
+            if (fromFile != null) return fromFile
+        }
+        return viewModel.getArticleContent(article.id)
     }
 
     private fun getExportFileName(article: com.miaodi.note.data.model.Article): String {

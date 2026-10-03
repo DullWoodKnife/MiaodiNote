@@ -217,9 +217,6 @@ class MainActivity : AppCompatActivity() {
      * 读取在 IO 线程执行，采用缓冲流逐块读取，避免一次性载入导致大文件 OOM。
      */
     private suspend fun importExternalMarkdown(uri: android.net.Uri, displayName: String?): Long {
-        val content = readTextFromUri(uri) ?: return -1L
-        if (content.isEmpty()) return -1L
-
         val rawName = (displayName ?: uri.lastPathSegment ?: "").substringAfterLast('/')
         var title = if (rawName.contains('.')) rawName.substringBeforeLast('.') else rawName
         title = title.trim()
@@ -228,6 +225,30 @@ class MainActivity : AppCompatActivity() {
                 .format(java.util.Date())
             title = "外部文档-$stamp"
         }
+
+        // 流式读取正文（限制上限，避免超大文件 OOM）
+        val content = readTextFromUri(uri) ?: return -1L
+        if (content.isEmpty()) return -1L
+
+        // 大文档：正文落盘存储，数据库仅保存路径。这样列表/启动查询不会
+        // 因整行读取超过 CursorWindow（约 2MB）上限而崩溃。
+        if (content.length > com.miaodi.note.data.ArticleContentStore.LARGE_CONTENT_THRESHOLD) {
+            val articleId = viewModel.insertArticleShell(title)
+            if (articleId <= 0) return -1L
+            val path = com.miaodi.note.data.ArticleContentStore.relativePathFor(articleId)
+            val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    com.miaodi.note.data.ArticleContentStore.write(this@MainActivity, path, content)
+                    true
+                } catch (t: Throwable) {
+                    false
+                }
+            }
+            if (!ok) return -1L
+            viewModel.setArticleContentPath(articleId, path)
+            return articleId
+        }
+        // 小文档：保持内联存储
         return viewModel.importExternalMarkdown(title, content)
     }
 

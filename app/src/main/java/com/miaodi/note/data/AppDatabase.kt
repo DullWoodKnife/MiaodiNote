@@ -17,7 +17,7 @@ import com.miaodi.note.data.model.Chapter
 import com.miaodi.note.data.model.ClipboardRecord
 import com.miaodi.note.data.model.Todo
 
-@Database(entities = [Book::class, Chapter::class, Article::class, Todo::class, ClipboardRecord::class], version = 3, exportSchema = false)
+@Database(entities = [Book::class, Chapter::class, Article::class, Todo::class, ClipboardRecord::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun bookDao(): BookDao
@@ -71,6 +71,12 @@ abstract class AppDatabase : RoomDatabase() {
                             "`content` TEXT NOT NULL, " +
                             "`createdAt` INTEGER NOT NULL)"
                     )
+                }
+            },
+            object : Migration(3, 4) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    // 为文章表新增 contentPath 列（大文档正文改为落盘存储）。
+                    db.execSQL("ALTER TABLE `articles` ADD COLUMN `contentPath` TEXT")
                 }
             }
         )

@@ -51,6 +51,14 @@ class NoteRepository(
     suspend fun getArticleById(id: Long): Article? = articleDao.getArticleById(id)
     suspend fun getArticleCount(chapterId: Long): Int = articleDao.getArticleCount(chapterId)
 
+    // ===== 大文档正文落盘迁移支持 =====
+    suspend fun getIdsWithLargeContent(threshold: Int): List<Long> = articleDao.getIdsWithLargeContent(threshold)
+    suspend fun getContentLength(id: Long): Int? = articleDao.getContentLength(id)
+    suspend fun getContentChunk(id: Long, offset: Int, length: Int): String? = articleDao.getContentChunk(id, offset, length)
+    suspend fun getContentOnly(id: Long): String? = articleDao.getContentOnly(id)
+    suspend fun setContentExternalized(id: Long, path: String) = articleDao.setContentExternalized(id, path)
+    suspend fun setContentInline(id: Long, content: String) = articleDao.setContentInline(id, content)
+
     // Todos
     fun getAllTodos(): Flow<List<Todo>> = todoDao.getAllTodos()
     suspend fun getAllTodosOnce(): List<Todo> = todoDao.getAllTodosOnce()
