@@ -55,6 +55,9 @@ class EditFragment : Fragment() {
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
     private val titleDateFormat = SimpleDateFormat("yyyy-MM-dd(HHmmss)", Locale.getDefault())
 
+    /** 预览渲染的最大字符数：超过该长度仅渲染前 N 个字符，避免超大文档在渲染时卡死主线程。 */
+    private val PREVIEW_MAX_CHARS = 200_000
+
     /** 编辑器三态：锁定编辑 → 滑动浏览 → MD 只读预览 */
     private enum class EditorMode { LOCKED_EDIT, SLIDE, MD_READONLY }
     // 默认进入“滑动状态”：可编辑 MD 源码，左右滑动进入渲染预览
@@ -324,29 +327,47 @@ class EditFragment : Fragment() {
         imm.hideSoftInputFromWindow(binding.etContent.windowToken, 0)
     }
 
-    /** 整页 Markdown 渲染预览（占据内容区） */
+    /** 整页 Markdown 渲染预览（占据内容区）。渲染在后台线程执行并限制预览长度，避免大文档卡死主线程。 */
     private fun refreshFullPreview() {
         val prefs = requireContext().getSharedPreferences("miaodi_settings", Context.MODE_PRIVATE)
         val mdStyle = prefs.getString("md_style", "默认") ?: "默认"
         val content = binding.etContent.text.toString()
-        val html = MarkdownPreviewUtils.render(content, mdStyle)
-
-        previewWebView?.destroy()
-        previewWebView = WebView(requireContext()).apply {
-            settings.javaScriptEnabled = false
-            settings.textZoom = 100
-            setOnTouchListener(swipeTouchListener)
-            loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
-        }
-        binding.previewContainer.removeAllViews()
-        binding.previewContainer.addView(
-            previewWebView,
-            android.widget.FrameLayout.LayoutParams(
-                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+        lifecycleScope.launch {
+            val html = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                renderPreviewHtml(content, mdStyle)
+            }
+            if (!isAdded || _binding == null) return@launch
+            previewWebView?.destroy()
+            previewWebView = WebView(requireContext()).apply {
+                settings.javaScriptEnabled = false
+                settings.textZoom = 100
+                setOnTouchListener(swipeTouchListener)
+                loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+            }
+            binding.previewContainer.removeAllViews()
+            binding.previewContainer.addView(
+                previewWebView,
+                android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                )
             )
-        )
-        binding.previewContainer.visibility = View.VISIBLE
+            binding.previewContainer.visibility = View.VISIBLE
+        }
+    }
+
+    /**
+     * 在后台线程把 Markdown 渲染为 HTML；正文超过 PREVIEW_MAX_CHARS 时截断预览并附提示，
+     * 避免超大文档渲染时占用主线程过久导致卡死。
+     */
+    private fun renderPreviewHtml(content: String, mdStyle: String): String {
+        val truncated = content.length > PREVIEW_MAX_CHARS
+        val source = if (truncated) content.substring(0, PREVIEW_MAX_CHARS) else content
+        val html = MarkdownPreviewUtils.render(source, mdStyle)
+        if (!truncated) return html
+        val note = "<p style=\"color:#999999;font-size:13px\">（内容过大，仅预览前 " +
+            PREVIEW_MAX_CHARS + " 字符）</p>"
+        return html.replace("</article>", note + "</article>")
     }
 
     private fun clearFullPreview() {
@@ -561,6 +582,9 @@ class EditFragment : Fragment() {
     /** 根据“优先预览文章”设置，Markdown 文章打开时自动弹出渲染预览 */
     private fun maybeAutoPreview() {
         if (currentArticle?.isMarkdown != true) return
+        // 超大文档不自动弹出全屏预览：渲染/展示超大 Markdown 会阻塞主线程导致卡死，
+        // 用户可在滑动进入渲染模式或通过菜单手动触发预览。
+        if ((binding.etContent.text?.length ?: 0) > PREVIEW_MAX_CHARS) return
         val prefs = requireContext().getSharedPreferences("miaodi_settings", Context.MODE_PRIVATE)
         if (prefs.getBoolean("preview_first", false)) {
             binding.root.post { showMarkdownPreview() }
@@ -572,8 +596,17 @@ class EditFragment : Fragment() {
         val prefs = requireContext().getSharedPreferences("miaodi_settings", Context.MODE_PRIVATE)
         val mdStyle = prefs.getString("md_style", "默认") ?: "默认"
         val content = binding.etContent.text.toString()
-        val html = MarkdownPreviewUtils.render(content, mdStyle)
+        lifecycleScope.launch {
+            val html = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                renderPreviewHtml(content, mdStyle)
+            }
+            if (!isAdded || _binding == null) return@launch
+            showMarkdownPreviewDialog(html)
+        }
+    }
 
+    /** 使用已渲染好的 HTML 弹出全屏预览对话框；可横向滑动或返回键退出。 */
+    private fun showMarkdownPreviewDialog(html: String) {
         val webView = WebView(requireContext()).apply {
             settings.javaScriptEnabled = false
             settings.textZoom = 100

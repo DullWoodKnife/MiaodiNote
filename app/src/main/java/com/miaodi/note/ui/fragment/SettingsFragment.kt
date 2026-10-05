@@ -396,15 +396,36 @@ class SettingsFragment : Fragment() {
         }
     }
 
-    /** 导入 md/txt 文本文件为文章（插入默认章节或新建章节） */
+    /** 查询外部 Uri 的显示名（真实文件名）。OpenDocument 选择器返回的是文档 ID，
+     *  必须通过 OpenableColumns.DISPLAY_NAME 才能拿到用户看到的文件名。 */
+    private fun queryDisplayName(uri: Uri): String? {
+        if (uri.scheme == "file") return uri.lastPathSegment
+        var name: String? = null
+        try {
+            requireContext().contentResolver.query(
+                uri,
+                arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),
+                null, null, null
+            )?.use { cursor ->
+                val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (idx >= 0 && cursor.moveToFirst()) name = cursor.getString(idx)
+            }
+        } catch (_: Throwable) {
+            // 忽略：查询失败时回退到路径推断
+        }
+        if (name.isNullOrBlank()) name = uri.lastPathSegment?.substringAfterLast('/')
+        return name
+    }
+
+    /** 导入 md/txt 文本文件为文章（插入默认章节或新建章节）。
+     *  流式读取避免 OOM；正文超过阈值则落盘存储，数据库仅保存路径，避免列表/启动查询崩溃。 */
     private fun importTextFile(uri: Uri) {
         lifecycleScope.launch {
             try {
-                val content = requireContext().contentResolver.openInputStream(uri)?.use { input ->
-                    BufferedReader(InputStreamReader(input, Charsets.UTF_8)).readText()
-                } ?: return@launch
-                if (content.isBlank()) {
-                    Toast.makeText(requireContext(), "文件内容为空", Toast.LENGTH_SHORT).show()
+                val context = requireContext()
+                val content = com.miaodi.note.data.ArticleContentStore.readTextFromUri(context, uri)
+                if (content.isNullOrBlank()) {
+                    Toast.makeText(context, "文件内容为空或读取失败", Toast.LENGTH_SHORT).show()
                     return@launch
                 }
                 val repository = (requireActivity().application as MiaodiApplication).repository
@@ -416,13 +437,26 @@ class SettingsFragment : Fragment() {
                 val chapterId = if (chapters.isNotEmpty()) chapters.first().id else {
                     repository.insertChapter(Chapter(bookId = bookId, name = "导入"))
                 }
-                var title = uri.lastPathSegment?.substringAfterLast('/') ?: "导入文件"
+                var title = queryDisplayName(uri) ?: "导入文件"
                 if (title.contains('.')) title = title.substringBeforeLast('.')
+                title = title.trim()
                 if (title.isBlank()) title = "导入文件"
-                repository.insertArticle(
-                    Article(chapterId = chapterId, title = title, content = content, isMarkdown = true, isNew = true)
-                )
-                Toast.makeText(requireContext(), "已导入文章：$title", Toast.LENGTH_SHORT).show()
+                // 大文档：正文落盘存储，数据库仅保存相对路径。
+                if (content.length > com.miaodi.note.data.ArticleContentStore.LARGE_CONTENT_THRESHOLD) {
+                    val articleId = repository.insertArticle(
+                        Article(chapterId = chapterId, title = title, content = "", isMarkdown = true, isNew = true)
+                    )
+                    val path = com.miaodi.note.data.ArticleContentStore.relativePathFor(articleId)
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        com.miaodi.note.data.ArticleContentStore.write(context, path, content)
+                    }
+                    repository.setContentExternalized(articleId, path)
+                } else {
+                    repository.insertArticle(
+                        Article(chapterId = chapterId, title = title, content = content, isMarkdown = true, isNew = true)
+                    )
+                }
+                Toast.makeText(context, "已导入文章：$title", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "导入失败: ${e.message}", Toast.LENGTH_SHORT).show()
             }
