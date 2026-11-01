@@ -66,7 +66,13 @@ class BookChapterBottomSheet : DialogFragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val repository = (requireActivity().application as MiaodiApplication).repository
-        viewModel = ViewModelProvider(requireActivity(), MainViewModel.Factory(repository))[MainViewModel::class.java]
+        viewModel = ViewModelProvider(
+            requireActivity(),
+            MainViewModel.Factory(
+                repository,
+                requireContext().getSharedPreferences("miaodi_settings", android.content.Context.MODE_PRIVATE)
+            )
+        )[MainViewModel::class.java]
 
         setupToolbar()
         setupRecyclerViews()

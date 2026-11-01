@@ -9,12 +9,32 @@ import com.miaodi.note.data.repository.NoteRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-class MainViewModel(private val repository: NoteRepository) : ViewModel() {
+class MainViewModel(
+    private val repository: NoteRepository,
+    private val prefs: android.content.SharedPreferences? = null
+) : ViewModel() {
 
     private val _currentBookId = MutableStateFlow<Long>(-1)
     private val _currentChapterId = MutableStateFlow<Long>(-1)
     private val _searchQuery = MutableStateFlow("")
     private val _sortType = MutableStateFlow(SortType.UPDATE_TIME_DESC)
+
+    private companion object {
+        /** 上次选中的书本 id（用于重启后恢复定位）。 */
+        const val KEY_SELECTED_BOOK = "selected_book_id"
+
+        /** 上次选中的章节 id（用于重启后恢复定位）。 */
+        const val KEY_SELECTED_CHAPTER = "selected_chapter_id"
+    }
+
+    /** 记录当前选中的书本与章节，供下次启动时恢复，避免总是回到默认书本。 */
+    private fun persistSelection(bookId: Long, chapterId: Long) {
+        val p = prefs ?: return
+        p.edit()
+            .putLong(KEY_SELECTED_BOOK, bookId)
+            .putLong(KEY_SELECTED_CHAPTER, chapterId)
+            .apply()
+    }
 
     val sortType: StateFlow<SortType> = _sortType.asStateFlow()
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -66,17 +86,26 @@ class MainViewModel(private val repository: NoteRepository) : ViewModel() {
         viewModelScope.launch {
             val bookList = repository.getAllBooksOnce()
             if (bookList.isEmpty()) {
-                // Create default book
+                // 首次启动：创建默认书本与默认章节
                 val bookId = repository.insertBook(Book(name = "默认"))
-                _currentBookId.value = bookId
                 val chapterId = repository.insertChapter(Chapter(bookId = bookId, name = "默认"))
+                _currentBookId.value = bookId
                 _currentChapterId.value = chapterId
+                persistSelection(bookId, chapterId)
             } else {
-                _currentBookId.value = bookList.first().id
-                val chapterList = repository.getChaptersByBookOnce(bookList.first().id)
-                if (chapterList.isNotEmpty()) {
-                    _currentChapterId.value = chapterList.first().id
-                }
+                // 恢复上次打开的书本；若已被删除则回退到第一本
+                val savedBookId = prefs?.getLong(KEY_SELECTED_BOOK, -1L) ?: -1L
+                val book = bookList.firstOrNull { it.id == savedBookId } ?: bookList.first()
+                _currentBookId.value = book.id
+
+                // 恢复该书本下上次打开的章节；若已被删除则回退到第一章节
+                val chapterList = repository.getChaptersByBookOnce(book.id)
+                val savedChapterId = prefs?.getLong(KEY_SELECTED_CHAPTER, -1L) ?: -1L
+                val chapter = chapterList.firstOrNull { it.id == savedChapterId }
+                    ?: chapterList.firstOrNull()
+                val chapterId = chapter?.id ?: -1L
+                _currentChapterId.value = chapterId
+                persistSelection(book.id, chapterId)
             }
             seedMarkdownGuideIfNeeded()
         }
@@ -86,12 +115,15 @@ class MainViewModel(private val repository: NoteRepository) : ViewModel() {
         _currentBookId.value = bookId
         viewModelScope.launch {
             val chapterList = repository.getChaptersByBookOnce(bookId)
-            _currentChapterId.value = if (chapterList.isNotEmpty()) chapterList.first().id else -1
+            val chapterId = if (chapterList.isNotEmpty()) chapterList.first().id else -1L
+            _currentChapterId.value = chapterId
+            persistSelection(bookId, chapterId)
         }
     }
 
     fun selectChapter(chapterId: Long) {
         _currentChapterId.value = chapterId
+        persistSelection(_currentBookId.value, chapterId)
     }
 
     /**
@@ -174,7 +206,9 @@ class MainViewModel(private val repository: NoteRepository) : ViewModel() {
 
     fun insertBook(name: String) {
         viewModelScope.launch {
-            repository.insertBook(Book(name = name))
+            val bookId = repository.insertBook(Book(name = name))
+            // 新建后立即定位到新书本，避免用户还要手动再点一次
+            selectBook(bookId)
         }
     }
 
@@ -215,7 +249,9 @@ class MainViewModel(private val repository: NoteRepository) : ViewModel() {
                 val bookId = _currentBookId.value
                 if (bookId > 0) {
                     val chapterList = repository.getChaptersByBookOnce(bookId)
-                    _currentChapterId.value = if (chapterList.isNotEmpty()) chapterList.first().id else -1
+                    val nextId = if (chapterList.isNotEmpty()) chapterList.first().id else -1L
+                    _currentChapterId.value = nextId
+                    persistSelection(bookId, nextId)
                 } else {
                     _currentChapterId.value = -1
                 }
@@ -305,11 +341,14 @@ class MainViewModel(private val repository: NoteRepository) : ViewModel() {
         UPDATE_TIME_DESC, TITLE_ASC, TITLE_DESC, MANUAL
     }
 
-    class Factory(private val repository: NoteRepository) : ViewModelProvider.Factory {
+    class Factory(
+        private val repository: NoteRepository,
+        private val prefs: android.content.SharedPreferences? = null
+    ) : ViewModelProvider.Factory {
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
                 @Suppress("UNCHECKED_CAST")
-                return MainViewModel(repository) as T
+                return MainViewModel(repository, prefs) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }

@@ -46,7 +46,10 @@ class MainActivity : AppCompatActivity() {
         window.decorView.setOnApplyWindowInsetsListener { _, insets -> insets }
 
         val repository = (application as MiaodiApplication).repository
-        viewModel = androidx.lifecycle.ViewModelProvider(this, com.miaodi.note.ui.viewmodel.MainViewModel.Factory(repository))[com.miaodi.note.ui.viewmodel.MainViewModel::class.java]
+        viewModel = androidx.lifecycle.ViewModelProvider(this, com.miaodi.note.ui.viewmodel.MainViewModel.Factory(
+            repository,
+            getSharedPreferences("miaodi_settings", MODE_PRIVATE)
+        ))[com.miaodi.note.ui.viewmodel.MainViewModel::class.java]
 
         setupNavigation()
         setupToolbar()
