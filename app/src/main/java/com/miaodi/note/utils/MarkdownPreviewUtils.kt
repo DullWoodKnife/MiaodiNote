@@ -3,6 +3,8 @@ package com.miaodi.note.utils
 /**
  * 轻量 Markdown → HTML 渲染器（无第三方依赖）。
  * 支持：标题、粗体、斜体、行内代码、代码块、有序/无序列表、引用、水平线、链接、图片、表格、换行。
+ * 同时支持文档内嵌原生 HTML：块级标签（div/table/details/center/style 等）整段原样输出，
+ * 行内标签（span/b/font/sup/kbd 等）与 HTML 实体（&nbsp; 等）不被转义，可与 Markdown 语法混用。
  * 样式主题：默认 / 简约 / 夜间。
  */
 object MarkdownPreviewUtils {
@@ -64,6 +66,16 @@ object MarkdownPreviewUtils {
             if (inCodeBlock) {
                 codeBuf.append(line).append("\n")
                 i++
+                continue
+            }
+
+            // 块级 HTML：整段原样输出，不再做 Markdown 解析与转义。
+            val blockTag = blockHtmlTagOf(line)
+            if (blockTag != null) {
+                closeLists()
+                val end = i + collectHtmlBlockEnd(lines, i, blockTag)
+                for (k in i until end) sb.append(lines[k]).append("\n")
+                i = end
                 continue
             }
 
@@ -187,7 +199,18 @@ object MarkdownPreviewUtils {
     }
 
     private fun inline(text: String): String {
-        var s = escape(text)
+        // 先摘出行内 HTML 标签与 HTML 实体（占位符保存），避免被下面的转义逻辑破坏，
+        // 其余文本仍按 Markdown 规则解析，因此「HTML 标签 + Markdown 语法」可混用。
+        val holders = ArrayList<String>()
+        var s = HTML_TAG_REGEX.replace(text) { m ->
+            holders.add(m.value)
+            "\u0000" + (holders.size - 1) + "\u0000"
+        }
+        s = HTML_ENTITY_REGEX.replace(s) { m ->
+            holders.add(m.value)
+            "\u0000" + (holders.size - 1) + "\u0000"
+        }
+        s = escape(s)
         // 行内代码 `code`
         s = s.replace(Regex("`([^`]+)`")) { match ->
             "<code class=\"inline\">${match.groupValues[1]}</code>"
@@ -208,7 +231,54 @@ object MarkdownPreviewUtils {
         s = s.replace(Regex("""\[([^\]]+)\]\(([^)\s]+)\)""")) { match ->
             "<a href=\"${match.groupValues[2]}\">${match.groupValues[1]}</a>"
         }
+        // 还原被保护的行内 HTML 标签 / 实体
+        if (holders.isNotEmpty()) {
+            s = HTML_PLACEHOLDER_REGEX.replace(s) { m ->
+                val idx = m.groupValues[1].toIntOrNull() ?: -1
+                if (idx in holders.indices) holders[idx] else ""
+            }
+        }
         return s
+    }
+
+    /** 若该行以块级 HTML 的起止标签开头，返回小写标签名；否则返回 null。 */
+    private fun blockHtmlTagOf(line: String): String? {
+        val m = BLOCK_HTML_TAG_REGEX.find(line) ?: return null
+        val tag = m.groupValues[1].lowercase()
+        return if (tag in BLOCK_HTML_TAGS) tag else null
+    }
+
+    /** 该行是否只由一个 HTML 闭合标签构成（如 </div>）。 */
+    private fun isClosingHtmlLine(line: String): Boolean =
+        line.trimStart().startsWith("</")
+
+    /** 判断文本中是否包含指定标签的闭合形式（如 </div）。 */
+    private fun containsClosingTag(text: String, tag: String): Boolean =
+        text.contains("</$tag", ignoreCase = true)
+
+    /**
+     * 计算一段块级 HTML 的结束偏移量（相对 start，至少为 1）。
+     * 参照 CommonMark 的块级规则：
+     * - 单独一行即可闭合（自闭合、空元素、同行含闭合标签、本身就是闭合标签）；
+     * - pre/style/svg 等原样内容标签需读到闭合标签，允许内部含空行；
+     * - 其余块级标签遇到空行或独立闭合标签即结束，使块内的 Markdown 语法仍可被解析。
+     */
+    private fun collectHtmlBlockEnd(lines: List<String>, start: Int, tag: String): Int {
+        val first = lines[start].trimEnd()
+        if (isClosingHtmlLine(first)) return 1
+        if (first.endsWith("/>") || tag in VOID_HTML_TAGS) return 1
+        if (containsClosingTag(first, tag)) return 1
+        var k = start + 1
+        while (k < lines.size) {
+            val cur = lines[k]
+            if (containsClosingTag(cur, tag)) return k - start + 1
+            if (tag !in RAW_HTML_TAGS) {
+                // 普通块级标签：空行或独立闭合标签即视为本块结束
+                if (cur.isBlank() || isClosingHtmlLine(cur)) return k - start
+            }
+            k++
+        }
+        return lines.size - start
     }
 
     private fun escape(text: String): String =
@@ -216,6 +286,38 @@ object MarkdownPreviewUtils {
             .replace("<", "&lt;")
             .replace(">", "&gt;")
             .replace("\"", "&quot;")
+
+    /** 支持原样透传的块级 HTML 标签。 */
+    private val BLOCK_HTML_TAGS = setOf(
+        "address", "article", "aside", "audio", "blockquote", "canvas", "center", "details",
+        "dialog", "div", "dl", "fieldset", "figcaption", "figure", "footer", "form", "h1",
+        "h2", "h3", "h4", "h5", "h6", "header", "hr", "iframe", "main", "nav", "ol", "p",
+        "pre", "section", "style", "summary", "svg", "table", "tbody", "td", "tfoot", "th",
+        "thead", "tr", "ul", "video"
+    )
+
+    /** 空元素（无闭合标签）。 */
+    private val VOID_HTML_TAGS = setOf(
+        "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta",
+        "param", "source", "track", "wbr"
+    )
+
+    /** 内容需原样保留、可跨空行并必须以闭合标签结束的标签。 */
+    private val RAW_HTML_TAGS = setOf(
+        "pre", "style", "svg", "video", "audio", "canvas", "textarea"
+    )
+
+    /** 匹配行首的 HTML 起止标签，如 <div class="x"> 、<center> 、</div> */
+    private val BLOCK_HTML_TAG_REGEX = Regex("""^\s*</?([a-zA-Z][a-zA-Z0-9]*)\b""")
+
+    /** 行内 HTML 标签：<b> </span> <br/> <font color="red"> 等。 */
+    private val HTML_TAG_REGEX = Regex("""</?[a-zA-Z][a-zA-Z0-9]*\b[^<>]*?/?>""")
+
+    /** HTML 实体：&nbsp; &#160; &#xA0; */
+    private val HTML_ENTITY_REGEX = Regex("""&(?:[a-zA-Z][a-zA-Z0-9]{1,31}|#\d{1,7}|#[xX][0-9a-fA-F]{1,6});""")
+
+    /** 行内 HTML 占位符，如 \u0000 3 \u0000 */
+    private val HTML_PLACEHOLDER_REGEX = Regex("""\u0000(\d+)\u0000""")
 
     private const val DEFAULT_CSS = """
         body { margin: 0; padding: 16px; background: #FFFFFF; color: #212121;
