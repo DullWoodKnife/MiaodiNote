@@ -34,6 +34,7 @@ object MarkdownPreviewUtils {
         var i = 0
         var inCodeBlock = false
         val codeBuf = StringBuilder()
+        var codeLang: String? = null
         var inUl = false
         var inOl = false
 
@@ -56,9 +57,13 @@ object MarkdownPreviewUtils {
                 if (!inCodeBlock) {
                     inCodeBlock = true
                     codeBuf.setLength(0)
+                    // 围栏后的语言标记：```cpp / ```python
+                    codeLang = line.removePrefix("```").trim().substringBefore(' ')
+                        .ifBlank { null }
                 } else {
                     inCodeBlock = false
-                    sb.append(renderCodeBlock(codeBuf.toString()))
+                    sb.append(renderCodeBlock(codeBuf.toString(), codeLang))
+                    codeLang = null
                 }
                 i++
                 continue
@@ -169,7 +174,7 @@ object MarkdownPreviewUtils {
             i++
         }
         closeLists()
-        if (inCodeBlock) sb.append(renderCodeBlock(codeBuf.toString()))
+        if (inCodeBlock) sb.append(renderCodeBlock(codeBuf.toString(), codeLang))
         return sb.toString()
     }
 
@@ -193,9 +198,15 @@ object MarkdownPreviewUtils {
         return t.split("|").map { it.trim() }
     }
 
-    private fun renderCodeBlock(code: String): String {
-        val escaped = escape(code.trimEnd())
-        return "<pre class=\"codeblock\"><code>$escaped</code></pre>\n"
+    /**
+     * 渲染代码块：按围栏标注的语言做语法高亮，未标注或语言未知时保持纯文本。
+     */
+    private fun renderCodeBlock(code: String, lang: String?): String {
+        val trimmed = code.trimEnd()
+        val body = CodeHighlighter.highlight(trimmed, lang)
+        val langClass = lang?.trim()?.lowercase().orEmpty()
+        val cls = if (langClass.isEmpty()) "codeblock" else "codeblock lang-$langClass"
+        return "<pre class=\"$cls\"><code>$body</code></pre>\n"
     }
 
     private fun inline(text: String): String {
@@ -335,6 +346,16 @@ object MarkdownPreviewUtils {
         pre.codeblock { background: #F5F6FA; padding: 12px; border-radius: 8px;
                         overflow-x: auto; margin: 8px 0; }
         pre.codeblock code { font-family: "SFMono-Regular", Consolas, monospace; font-size: 14px; color: #333; }
+        .tok-kw { color: #C678DD; font-weight: 600; }
+        .tok-type { color: #E5A23B; }
+        .tok-str { color: #50A14F; }
+        .tok-num { color: #986801; }
+        .tok-com { color: #A0A1A7; font-style: italic; }
+        .tok-fn { color: #4078F2; }
+        .tok-var { color: #E45649; }
+        .tok-meta { color: #C18401; }
+        .tok-tag { color: #E45649; }
+        .tok-attr { color: #986801; }
         table { border-collapse: collapse; width: 100%; margin: 12px 0; }
         th, td { border: 1px solid #E0E0E0; padding: 6px 10px; text-align: left; }
         th { background: #F5F6FA; font-weight: 600; }
@@ -353,6 +374,17 @@ object MarkdownPreviewUtils {
         hr { border: none; border-top: 1px solid #DDD; margin: 16px 0; }
         code.inline { background: #EFEFEA; padding: 1px 5px; border-radius: 3px; font-size: 14px; }
         pre.codeblock { background: #EFEFEA; padding: 12px; border-radius: 4px; overflow-x: auto; }
+        pre.codeblock code { font-family: "SFMono-Regular", Consolas, monospace; font-size: 14px; }
+        .tok-kw { color: #7B4EA3; font-weight: 600; }
+        .tok-type { color: #9A6A00; }
+        .tok-str { color: #3F7A3F; }
+        .tok-num { color: #8A5A00; }
+        .tok-com { color: #8C8C8C; font-style: italic; }
+        .tok-fn { color: #2A5DA8; }
+        .tok-var { color: #A33B32; }
+        .tok-meta { color: #8A6A00; }
+        .tok-tag { color: #A33B32; }
+        .tok-attr { color: #8A5A00; }
         table { border-collapse: collapse; width: 100%; margin: 12px 0; }
         th, td { border: 1px solid #DDD; padding: 6px 10px; text-align: left; }
         th { background: #EFEFEA; font-weight: 600; }
@@ -374,6 +406,16 @@ object MarkdownPreviewUtils {
         pre.codeblock { background: #2D2D2D; padding: 12px; border-radius: 8px;
                         overflow-x: auto; margin: 8px 0; }
         pre.codeblock code { color: #E8E8E8; font-size: 14px; }
+        .tok-kw { color: #C792EA; font-weight: 600; }
+        .tok-type { color: #FFCB6B; }
+        .tok-str { color: #C3E88D; }
+        .tok-num { color: #F78C6C; }
+        .tok-com { color: #7A7F87; font-style: italic; }
+        .tok-fn { color: #82AAFF; }
+        .tok-var { color: #F07178; }
+        .tok-meta { color: #FFCB6B; }
+        .tok-tag { color: #F07178; }
+        .tok-attr { color: #FFCB6B; }
         table { border-collapse: collapse; width: 100%; margin: 12px 0; }
         th, td { border: 1px solid #444; padding: 6px 10px; text-align: left; }
         th { background: #2D2D2D; font-weight: 600; }
